@@ -1,0 +1,51 @@
+/* Add these to NewsEventsAdmin.css or a relevant component CSS file */
+
+.image-preview-grid-edit {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); /* Smaller previews for modal */
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #e0e0e0;
+    border-radius: 0.25rem;
+    /* background-color: #f8f9fa; */
+    max-height: 400px; /* Limit height of the grid container */
+    overflow-y: auto; /* Allow scrolling if many images */
+  }
+  
+  .image-preview-item-edit {
+    position: relative;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease, z-index 0.3s ease; /* Added transition for smooth scaling and z-index */
+  }
+
+  .image-preview-item-edit:hover {
+    transform: scale(2.5); /* Scale up the image on hover */
+    z-index: 10; /* Bring the hovered image to the front */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Optional: add a shadow for better visibility */
+  }
+  
+  .image-preview-thumbnail-edit {
+    max-width: 300%;
+    max-height: 300%;
+    width: auto;
+    height: auto;
+    object-fit: cover;
+    display: block;
+  }
+  
+  /* You might already have .image-preview for single event image, ensure it's styled appropriately */
+  .image-preview-container .image-preview {
+    max-height: 400px;
+    max-width: 400px;
+    width: auto;
+    object-fit: contain;
+    border: 1px solid #ddd;
+    padding: 4px;
+    border-radius: 4px;
+  }

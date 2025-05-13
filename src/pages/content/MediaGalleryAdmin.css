@@ -1,0 +1,84 @@
+/* MediaGalleryAdmin.css */
+
+.media-gallery-admin-page .admin-card {
+    border: none;
+    border-radius: 0.75rem; /* Softer corners */
+    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
+  }
+  
+  .media-gallery-admin-page .admin-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important; /* Enhanced shadow on hover */
+  }
+  
+  .media-gallery-admin-page .card-header {
+    color: gray;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+  }
+  
+  .media-gallery-admin-page .quill-editor-container .ql-toolbar {
+    border-top-left-radius: 0.375rem; /* Bootstrap's default form control border-radius */
+    border-top-right-radius: 0.375rem;
+    border-color: #ced4da; /* Bootstrap's default input border color */
+  }
+  
+  .media-gallery-admin-page .quill-editor-container .ql-container {
+    border-bottom-left-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+    border-color: #ced4da;
+    min-height: 150px; /* Ensure a decent default height */
+    font-size: 1rem; /* Match Bootstrap's default form input font size */
+  }
+  
+  .media-gallery-admin-page .image-preview-container {
+    border: 1px solid #e0e0e0;
+    padding: 10px;
+    border-radius: 0.375rem;
+  }
+  
+  .media-gallery-admin-page .image-preview {
+    max-width: 100%;
+    max-height: 200px; /* Control preview size */
+    border-radius: 0.25rem;
+    object-fit: contain; /* Show entire image/video frame */
+  }
+  
+  .media-gallery-admin-page .submit-button {
+    min-width: 150px; /* Give button a decent minimum width */
+    padding: 0.5rem 1rem; /* Adjust padding for better feel */
+  }
+  
+  /* Fade-in animation for the card */
+  .fade-in-card {
+    opacity: 0;
+    animation: fadeInAnimation 0.5s ease-out forwards;
+  }
+  
+  @keyframes fadeInAnimation {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  /* Custom styling for tab content if not using React Bootstrap Tabs directly */
+  .tab-content-custom {
+    /* border-radius: 0 0 0.75rem 0.75rem; */ /* If card body has padding, this might not be needed */
+  }
+  
+  /* Ensure form labels have a good weight */
+  .media-gallery-admin-page .form-label {
+    font-weight: 500;
+  }
+  
+  /* Alert styling consistency */
+  .media-gallery-admin-page .alert {
+    border-radius: 0.375rem;
+  }
