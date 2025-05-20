@@ -11,7 +11,7 @@ import './NewsEventsAdmin.css';
 
 // --- START: Inlined API Service Content ---
 
-export const BACKEND_URL = "http://localhost:5001"; // Base URL for your backend
+export const BACKEND_URL = "https://localhost:5001"; // Base URL for your backend
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
