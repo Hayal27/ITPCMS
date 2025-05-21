@@ -180,30 +180,60 @@ const postNews = (req, res) => {
     });
   });
 };
+// Configure storage for event images (same as news images)
+const eventStorage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const uploadPath = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        cb(null, uploadPath);
+    },
+    filename: function (req, file, cb) {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
 
+// Create multer upload instance for multiple event images
+const uploadMultipleEventImages = multer({
+    storage: eventStorage,
+    limits: { 
+        fileSize: 5 * 1024 * 1024, // 5MB file size limit per file
+    },
+    fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith('image/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'), false);
+        }
+    }
+}).array('newsImages', 10); // Using same field name as news images for consistency
 const postEvent = (req, res) => {
-  uploadNewsEventImage(req, res, async (err) => {
+  uploadMultipleEventImages(req, res, async (err) => {
     if (err) {
-      console.error("Multer error for event image:", err);
-      return res.status(500).json({ error: "Event image upload failed.", details: err.message });
+      console.error("Multer error for event images:", err);
+      return res.status(500).json({ error: "Event images upload failed.", details: err.message, code: err.code });
     }
 
     const { title, date, time, venue, description, featured, registrationLink, capacity, tags } = req.body;
 
     if (!title || !date || !time || !venue || !description || !capacity) {
-      if (req.file) { 
-        fs.unlink(req.file.path, (unlinkErr) => {
-          if (unlinkErr) console.error("Error deleting orphaned event image (validation fail):", req.file.filename, unlinkErr);
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => {
+          fs.unlink(file.path, (unlinkErr) => {
+            if (unlinkErr) console.error("Error deleting orphaned event image (validation fail):", file.filename, unlinkErr);
+          });
         });
       }
       return res.status(400).json({ error: "Missing required fields for event item." });
     }
 
-    if (!req.file) {
-      return res.status(400).json({ error: "Event image is required." });
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: "At least one event image is required." });
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`; // Store relative path
+    const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
+    const imagesJson = JSON.stringify(imageUrls);
     const isFeatured = featured === 'true' || featured === true;
     
     let tagsJson = null;
@@ -218,23 +248,25 @@ const postEvent = (req, res) => {
     }
 
     const sql = `INSERT INTO events (title, date, time, venue, image, description, featured, registrationLink, capacity, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-    const values = [title, date, time, venue, imageUrl, description, isFeatured, registrationLink, capacity, tagsJson];
+    const values = [title, date, time, venue, imagesJson, description, isFeatured, registrationLink, capacity, tagsJson];
 
     con.query(sql, values, (dbErr, result) => {
       if (dbErr) {
         console.error("Database error inserting event:", dbErr);
-        fs.unlink(req.file.path, (unlinkErr) => {
-          if (unlinkErr) console.error("Error deleting orphaned event image (DB fail):", req.file.filename, unlinkErr);
+        req.files.forEach(file => {
+          fs.unlink(file.path, (unlinkErr) => {
+            if (unlinkErr) console.error("Error deleting orphaned event image (DB fail):", file.filename, unlinkErr);
+          });
         });
         return res.status(500).json({ error: "Failed to save event item to database." });
       }
       console.log(`Event item added: ${title}, ID: ${result.insertId}`);
       res.status(201).json({ 
-          success: true, 
-          message: "Event item added successfully.", 
-          eventId: result.insertId, 
-          imageUrl: imageUrl // Send relative URL back
-        });
+        success: true, 
+        message: "Event item added successfully.", 
+        eventId: result.insertId, 
+        imageUrls: imageUrls // Send relative URLs back
+      });
     });
   });
 };
