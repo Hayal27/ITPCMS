@@ -1,13 +1,13 @@
 
 import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
-import { Container, Row, Col, Form, Button, Card, Alert, Spinner, Tabs, Tab, Fade } from 'react-bootstrap';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
-import './NewsEventsAdmin.css';
+// import './NewsEventsAdmin.css'; // Removed in favor of Tailwind
 
-export const BACKEND_URL = "http://localhost:5001";
+export const BACKEND_URL = "https://api-cms.startechaigroup.com";
 
+// --- API Request Helper ---
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
   try {
     const response = await axios({
@@ -32,44 +32,46 @@ export async function request<T>(url: string, options: AxiosRequestConfig = {}):
   }
 }
 
+// --- Interfaces ---
 export interface NewsItem {
-    id: number | string;
-    title: string;
-    date: string;
-    category: string;
-    image: string[];
-    description: string;
-    featured: boolean;
-    readTime?: string;
-    tags?: string[];
-    youtubeUrl?: string;
-    comments?: number;
+  id: number | string;
+  title: string;
+  date: string;
+  category: string;
+  image: string[];
+  description: string;
+  featured: boolean;
+  readTime?: string;
+  tags?: string[];
+  youtubeUrl?: string;
+  comments?: number;
 }
 
 export interface EventItem {
-    id: number | string;
-    title: string;
-    date: string;
-    time: string;
-    venue: string;
-    image: string[];
-    description: string;
-    featured: boolean;
-    registrationLink?: string;
-    capacity?: string;
-    tags?: string[];
-    comments?: number;
+  id: number | string;
+  title: string;
+  date: string;
+  time: string;
+  venue: string;
+  image: string[];
+  description: string;
+  featured: boolean;
+  registrationLink?: string;
+  capacity?: string;
+  tags?: string[];
+  comments?: number;
 }
 
-export type NewsFormData = Omit<NewsItem, 'id' | 'comments' | 'image'> & { 
+export type NewsFormData = Omit<NewsItem, 'id' | 'comments' | 'image'> & {
   imageFiles?: File[];
-  youtubeUrl?: string; 
+  youtubeUrl?: string;
 };
 
-export type EventFormData = Omit<EventItem, 'id' | 'comments' | 'image'> & { 
+export type EventFormData = Omit<EventItem, 'id' | 'comments' | 'image'> & {
   imageFiles?: File[];
 };
 
+// --- Form Data Builders ---
 const buildNewsFormData = (newsData: NewsFormData | Partial<NewsFormData>): FormData => {
   const formData = new FormData();
   (Object.keys(newsData) as Array<keyof typeof newsData>).forEach(key => {
@@ -90,65 +92,61 @@ const buildNewsFormData = (newsData: NewsFormData | Partial<NewsFormData>): Form
 };
 
 const buildEventFormData = (eventData: EventFormData): FormData => {
-    const formData = new FormData();
-    
-    // Add all non-file fields
-    Object.keys(eventData).forEach(key => {
-        if (key !== 'imageFiles' && key !== 'tags') {
-            const value = eventData[key as keyof EventFormData];
-            if (value !== undefined && value !== null) {
-                formData.append(key, String(value));
-            }
-        }
+  const formData = new FormData();
+  Object.keys(eventData).forEach(key => {
+    if (key !== 'imageFiles' && key !== 'tags') {
+      const value = eventData[key as keyof EventFormData];
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
+    }
+  });
+
+  if (eventData.tags && eventData.tags.length > 0) {
+    eventData.tags.forEach(tag => formData.append('tags', tag));
+  }
+
+  if (eventData.imageFiles && eventData.imageFiles.length > 0) {
+    eventData.imageFiles.forEach(file => {
+      formData.append('newsImages', file);
     });
+  }
 
-    // Add tags
-    if (eventData.tags && eventData.tags.length > 0) {
-        eventData.tags.forEach(tag => formData.append('tags', tag));
-    }
-
-    // Add images using the same field name as news
-    if (eventData.imageFiles && eventData.imageFiles.length > 0) {
-        eventData.imageFiles.forEach(file => {
-            formData.append('newsImages', file);
-        });
-    }
-
-    return formData;
+  return formData;
 };
 
+// --- API Calls ---
 export const addNews = async (newsData: NewsFormData): Promise<NewsItem> => {
   const formData = buildNewsFormData(newsData);
-  return request<{ success: boolean; message: string; newsId: number; imageUrls: string[]; youtubeUrl?: string }>('/news', { 
+  return request<{ success: boolean; message: string; newsId: number; imageUrls: string[]; youtubeUrl?: string }>('/news', {
     method: 'POST',
     data: formData,
   }).then(response => ({
-      ...newsData,
-      id: response.newsId,
-      image: response.imageUrls,
-      youtubeUrl: response.youtubeUrl || newsData.youtubeUrl,
+    ...newsData,
+    id: response.newsId,
+    image: response.imageUrls,
+    youtubeUrl: response.youtubeUrl || newsData.youtubeUrl,
   }));
 };
 
 export const addEvent = async (eventData: EventFormData): Promise<EventItem> => {
   const formData = buildEventFormData(eventData);
-  return request<{ success: boolean; message: string; eventId: number; imageUrls: string[] }>('/events', { 
+  return request<{ success: boolean; message: string; eventId: number; imageUrls: string[] }>('/events', {
     method: 'POST',
     data: formData,
   }).then(response => ({
-      ...eventData,
-      id: response.eventId,
-      image: response.imageUrls,
+    ...eventData,
+    id: response.eventId,
+    image: response.imageUrls,
   }));
 };
 
-// Other API functions remain the same...
-
+// --- Quill Configuration ---
 export const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
     ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-    [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
     ['link', 'image', 'video'],
     [{ 'align': [] }],
     [{ 'color': [] }, { 'background': [] }],
@@ -164,32 +162,15 @@ export const quillFormats = [
 const MAX_IMAGES = 10;
 
 const initialNewsFormData: NewsFormData = {
-  title: '', 
-  date: '', 
-  category: 'Innovation', 
-  description: '',
-  featured: false, 
-  readTime: '', 
-  tags: [], 
-  imageFiles: [], 
-  youtubeUrl: '',
+  title: '', date: '', category: 'Innovation', description: '', featured: false, readTime: '', tags: [], imageFiles: [], youtubeUrl: '',
 };
 
 const initialEventFormData: EventFormData = {
-  title: '', 
-  date: '', 
-  time: '', 
-  venue: '', 
-  description: '',
-  featured: false, 
-  registrationLink: '', 
-  capacity: '', 
-  tags: [], 
-  imageFiles: [],
+  title: '', date: '', time: '', venue: '', description: '', featured: false, registrationLink: '', capacity: '', tags: [], imageFiles: [],
 };
 
 export const newsCategories = [
-  'Infrastructure', 'Innovation', 'Startup Ecosystem', 'Strategic Partnerships', 
+  'Infrastructure', 'Innovation', 'Startup Ecosystem', 'Strategic Partnerships',
   'Events & Summits', 'Awards & Recognition', 'Government Initiatives', 'Community Engagement'
 ];
 
@@ -198,6 +179,7 @@ export const stripHtml = (html: string): string => {
   return doc.body.textContent || "";
 };
 
+// --- Main Component ---
 const NewsEventsAdmin: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'news' | 'events'>('news');
   const [newsFormData, setNewsFormData] = useState<NewsFormData>(initialNewsFormData);
@@ -207,14 +189,9 @@ const NewsEventsAdmin: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [isCardVisible, setIsCardVisible] = useState(false);
 
-  useEffect(() => { setIsCardVisible(true); }, []);
-
-  const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
-    formType: 'news' | 'event'
-  ) => {
+  // Helper to handle input changes
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>, formType: 'news' | 'event') => {
     const { name, value, type } = e.target;
     const setter = formType === 'news' ? setNewsFormData : setEventFormData;
     setter(prev => {
@@ -285,13 +262,8 @@ const NewsEventsAdmin: React.FC = () => {
     });
 
     Promise.all(updatedPreviewsPromises)
-      .then(generatedPreviews => {
-        previewSetter(generatedPreviews);
-      })
-      .catch(error => {
-        console.error("Error regenerating previews after removal:", error);
-        previewSetter(prev => prev.filter((_, index) => index !== indexToRemove));
-      });
+      .then(generatedPreviews => previewSetter(generatedPreviews))
+      .catch(error => console.error("Error regenerating previews after removal:", error));
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>, formType: 'news' | 'event') => {
@@ -327,345 +299,238 @@ const NewsEventsAdmin: React.FC = () => {
     }
   };
 
+  // --- Render Helpers ---
   const renderImageUploadSection = (formType: 'news' | 'event') => {
     const previews = formType === 'news' ? newsImagePreviews : eventImagePreviews;
     const currentFiles = formType === 'news' ? newsFormData.imageFiles : eventFormData.imageFiles;
 
     return (
-      <>
-        <Form.Group className="mb-3" controlId={`${formType}ImageFiles`}>
-          <Form.Label>Images</Form.Label>
-          <Form.Control 
-            type="file" 
-            name="imageFiles" 
-            accept="image/*" 
-            onChange={(e) => handleFileChange(e, formType)} 
-            multiple
-            disabled={(currentFiles?.length || 0) >= MAX_IMAGES}
-          />
-          <Form.Text className="text-muted">
-            Select up to {MAX_IMAGES} images. ({(currentFiles?.length || 0)} selected)
-          </Form.Text>
-        </Form.Group>
+      <div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-dashed border-gray-300 dark:border-gray-600">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Upload Images</label>
+        <div className="flex items-center justify-center w-full">
+          <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600 ${(currentFiles?.length || 0) >= MAX_IMAGES ? 'opacity-50 cursor-not-allowed' : ''}`}>
+            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+              <svg className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
+              </svg>
+              <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Select up to {MAX_IMAGES} images ({(currentFiles?.length || 0)} selected)</p>
+            </div>
+            <input
+              type="file"
+              className="hidden"
+              accept="image/*"
+              onChange={(e) => handleFileChange(e, formType)}
+              multiple
+              disabled={(currentFiles?.length || 0) >= MAX_IMAGES}
+            />
+          </label>
+        </div>
 
         {previews.length > 0 && (
-          <div className="image-preview-grid mt-2">
+          <div className="grid grid-cols-3 gap-2 mt-4">
             {previews.map((previewSrc, index) => (
-              <div key={index} className="image-preview-item">
-                <img
-                  src={previewSrc}
-                  alt={`Preview ${index + 1}`}
-                  className="image-preview-thumbnail"
-                />
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="image-remove-button"
+              <div key={index} className="relative group aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                <img src={previewSrc} alt={`Preview ${index + 1}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleRemoveImage(index, formType)}
-                  title="Remove image"
                 >
-                  &times;
-                </Button>
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
             ))}
           </div>
         )}
-        {(currentFiles?.length || 0) >= MAX_IMAGES && (
-          <Alert variant="info" className="mt-2 small">
-            Maximum number of images ({MAX_IMAGES}) reached.
-          </Alert>
-        )}
-      </>
+      </div>
     );
   };
 
+  // --- Input Styles ---
+  const inputClass = "w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-gray-700 dark:text-gray-100 placeholder-gray-400";
+  const labelClass = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
+
   const renderNewsForm = () => (
-    <Form onSubmit={(e) => handleSubmit(e, 'news')}>
-      <Row>
-        <Col md={8}>
-          <Form.Group className="mb-3" controlId="newsTitle">
-            <Form.Label>Title</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="title" 
-              value={newsFormData.title} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              required 
-            />
-          </Form.Group>
+    <form onSubmit={(e) => handleSubmit(e, 'news')} className="space-y-6 animate-fade-in-up">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <div>
+            <label className={labelClass}>Title</label>
+            <input type="text" name="title" value={newsFormData.title} onChange={(e) => handleInputChange(e, 'news')} required className={inputClass} />
+          </div>
 
-          <Form.Group className="mb-3" controlId="newsDate">
-            <Form.Label>Date</Form.Label>
-            <Form.Control 
-              type="date" 
-              name="date" 
-              value={newsFormData.date} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              required 
-            />
-          </Form.Group>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Date</label>
+              <input type="date" name="date" value={newsFormData.date} onChange={(e) => handleInputChange(e, 'news')} required className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Category</label>
+              <select name="category" value={newsFormData.category} onChange={(e) => handleInputChange(e, 'news')} required className={inputClass}>
+                {newsCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="newsCategory">
-            <Form.Label>Category</Form.Label>
-            <Form.Select 
-              name="category" 
-              value={newsFormData.category} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              required
-            >
-              {newsCategories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </Form.Select>
-          </Form.Group>
+          <div>
+            <label className={labelClass}>Description</label>
+            <div className="prose-editor dark:text-white">
+              <ReactQuill theme="snow" value={newsFormData.description} onChange={(content) => handleDescriptionChange(content, 'news')} modules={quillModules} formats={quillFormats} className="bg-white dark:bg-slate-800 rounded-lg overflow-hidden" />
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="newsDescription">
-            <Form.Label>Description</Form.Label>
-            <ReactQuill 
-              theme="snow" 
-              value={newsFormData.description} 
-              onChange={(content) => handleDescriptionChange(content, 'news')} 
-              modules={quillModules} 
-              formats={quillFormats} 
-              className="quill-editor-container"
-            />
-          </Form.Group>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Read Time</label>
+              <input type="text" name="readTime" value={newsFormData.readTime} onChange={(e) => handleInputChange(e, 'news')} placeholder="e.g., 5 min read" required className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Details (Tags)</label>
+              <input type="text" name="tags" value={newsFormData.tags?.join(', ') || ''} onChange={(e) => handleInputChange(e, 'news')} placeholder="featured, innovation (comma separated)" className={inputClass} />
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="newsReadTime">
-            <Form.Label>Read Time (optional)</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="readTime" 
-              value={newsFormData.readTime} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              placeholder="e.g., 5 min read"
-            />
-          </Form.Group>
+          <div>
+            <label className={labelClass}>YouTube URL (optional)</label>
+            <input type="url" name="youtubeUrl" value={newsFormData.youtubeUrl || ''} onChange={(e) => handleInputChange(e, 'news')} placeholder="https://www.youtube.com/watch?v=..." className={inputClass} />
+          </div>
 
-          <Form.Group className="mb-3" controlId="newsTags">
-            <Form.Label>Tags (optional)</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="tags" 
-              value={newsFormData.tags?.join(', ') || ''} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              placeholder="e.g., featured, innovation, tech" 
-            />
-          </Form.Group>
+          <div className="flex items-center space-x-2">
+            <input type="checkbox" id="newsFeatured" name="featured" checked={newsFormData.featured} onChange={(e) => handleInputChange(e, 'news')} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+            <label htmlFor="newsFeatured" className="text-sm font-medium text-gray-900 dark:text-gray-300">Mark as Featured Item</label>
+          </div>
+        </div>
 
-          <Form.Group className="mb-3" controlId="newsYoutubeUrl">
-            <Form.Label>YouTube URL (optional)</Form.Label>
-            <Form.Control 
-              type="url" 
-              name="youtubeUrl" 
-              value={newsFormData.youtubeUrl || ''} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-              placeholder="e.g., https://www.youtube.com/watch?v=videoID" 
-            />
-          </Form.Group>
-
-          <Form.Group className="mb-3" controlId="newsFeatured">
-            <Form.Check 
-              type="checkbox" 
-              name="featured" 
-              label="Featured Item" 
-              checked={newsFormData.featured} 
-              onChange={(e) => handleInputChange(e, 'news')} 
-            />
-          </Form.Group>
-        </Col>
-        <Col md={4}>
+        <div className="space-y-4">
           {renderImageUploadSection('news')}
-        </Col>
-      </Row>
-      <Button variant="primary" type="submit" disabled={loading} className="mt-3 submit-button">
-        {loading ? (
-          <>
-            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Adding News...
-          </>
-        ) : 'Add News Item'}
-      </Button>
-    </Form>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+        <button type="submit" disabled={loading} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center min-w-[160px]">
+          {loading ? (
+            <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Saving...</>
+          ) : 'Publish News'}
+        </button>
+      </div>
+    </form>
   );
 
   const renderEventForm = () => (
-    <Form onSubmit={(e) => handleSubmit(e, 'events')}>
-      <Row>
-        <Col md={8}>
-          <Form.Group className="mb-3" controlId="eventTitle">
-            <Form.Label>Title</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="title" 
-              value={eventFormData.title} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-              required 
-            />
-          </Form.Group>
+    <form onSubmit={(e) => handleSubmit(e, 'events')} className="space-y-6 animate-fade-in-up">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-4">
+          <div>
+            <label className={labelClass}>Title</label>
+            <input type="text" name="title" value={eventFormData.title} onChange={(e) => handleInputChange(e, 'event')} required className={inputClass} />
+          </div>
 
-          <Row>
-            <Col md={6}>
-              <Form.Group className="mb-3" controlId="eventDate">
-                <Form.Label>Date</Form.Label>
-                <Form.Control 
-                  type="date" 
-                  name="date" 
-                  value={eventFormData.date} 
-                  onChange={(e) => handleInputChange(e, 'event')} 
-                  required 
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group className="mb-3" controlId="eventTime">
-                <Form.Label>Time</Form.Label>
-                <Form.Control 
-                  type="time" 
-                  name="time" 
-                  value={eventFormData.time} 
-                  onChange={(e) => handleInputChange(e, 'event')} 
-                  required 
-                />
-              </Form.Group>
-            </Col>
-          </Row>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Date</label>
+              <input type="date" name="date" value={eventFormData.date} onChange={(e) => handleInputChange(e, 'event')} required className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Time</label>
+              <input type="time" name="time" value={eventFormData.time} onChange={(e) => handleInputChange(e, 'event')} required className={inputClass} />
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="eventVenue">
-            <Form.Label>Venue</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="venue" 
-              value={eventFormData.venue} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-              required 
-            />
-          </Form.Group>
+          <div>
+            <label className={labelClass}>Venue</label>
+            <input type="text" name="venue" value={eventFormData.venue} onChange={(e) => handleInputChange(e, 'event')} required className={inputClass} />
+          </div>
 
-          <Form.Group className="mb-3" controlId="eventDescription">
-            <Form.Label>Description</Form.Label>
-            <ReactQuill 
-              theme="snow" 
-              value={eventFormData.description} 
-              onChange={(content) => handleDescriptionChange(content, 'event')} 
-              modules={quillModules} 
-              formats={quillFormats} 
-              className="quill-editor-container"
-            />
-          </Form.Group>
+          <div>
+            <label className={labelClass}>Description</label>
+            <div className="prose-editor dark:text-white">
+              <ReactQuill theme="snow" value={eventFormData.description} onChange={(content) => handleDescriptionChange(content, 'event')} modules={quillModules} formats={quillFormats} className="bg-white dark:bg-slate-800 rounded-lg overflow-hidden" />
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="eventCapacity">
-            <Form.Label>Capacity (optional)</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="capacity" 
-              value={eventFormData.capacity} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-              placeholder="e.g., 200 seats"
-            />
-          </Form.Group>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Capacity (optional)</label>
+              <input type="text" name="capacity" value={eventFormData.capacity} onChange={(e) => handleInputChange(e, 'event')} placeholder="e.g., 200 seats" className={inputClass} />
+            </div>
+            <div>
+              <label className={labelClass}>Details (Tags)</label>
+              <input type="text" name="tags" value={eventFormData.tags?.join(', ') || ''} onChange={(e) => handleInputChange(e, 'event')} placeholder="summit, workshop..." className={inputClass} />
+            </div>
+          </div>
 
-          <Form.Group className="mb-3" controlId="eventRegistrationLink">
-            <Form.Label>Registration Link (optional)</Form.Label>
-            <Form.Control 
-              type="url" 
-              name="registrationLink" 
-              value={eventFormData.registrationLink} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-              placeholder="https://example.com/register" 
-            />
-          </Form.Group>
+          <div>
+            <label className={labelClass}>Registration Link (optional)</label>
+            <input type="url" name="registrationLink" value={eventFormData.registrationLink} onChange={(e) => handleInputChange(e, 'event')} placeholder="https://example.com/register" className={inputClass} />
+          </div>
 
-          <Form.Group className="mb-3" controlId="eventTags">
-            <Form.Label>Tags (optional)</Form.Label>
-            <Form.Control 
-              type="text" 
-              name="tags" 
-              value={eventFormData.tags?.join(', ') || ''} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-              placeholder="e.g., summit, workshop, featured" 
-            />
-          </Form.Group>
+          <div className="flex items-center space-x-2">
+            <input type="checkbox" id="eventFeatured" name="featured" checked={eventFormData.featured} onChange={(e) => handleInputChange(e, 'event')} className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+            <label htmlFor="eventFeatured" className="text-sm font-medium text-gray-900 dark:text-gray-300">Mark as Featured Event</label>
+          </div>
+        </div>
 
-          <Form.Group className="mb-3" controlId="eventFeatured">
-            <Form.Check 
-              type="checkbox" 
-              name="featured" 
-              label="Featured Item" 
-              checked={eventFormData.featured} 
-              onChange={(e) => handleInputChange(e, 'event')} 
-            />
-          </Form.Group>
-        </Col>
-        <Col md={4}>
+        <div className="space-y-4">
           {renderImageUploadSection('event')}
-        </Col>
-      </Row>
-      <Button variant="primary" type="submit" disabled={loading} className="mt-3 submit-button">
-        {loading ? (
-          <>
-            <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" /> Adding Event...
-          </>
-        ) : 'Add Event Item'}
-      </Button>
-    </Form>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+        <button type="submit" disabled={loading} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center min-w-[160px]">
+          {loading ? (
+            <><svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Saving...</>
+          ) : 'Publish Event'}
+        </button>
+      </div>
+    </form>
   );
 
   return (
-    <Container className="py-5 news-events-admin-page">
-      <Row className="justify-content-center">
-        <Col lg={10} xl={8}>
-          <Fade in={isCardVisible} timeout={500}>
-            <Card className={`shadow-sm admin-card ${isCardVisible ? 'fade-in-card' : ''}`}>
-              <Card.Header as="h2" className="text-center text-gray">
-                Manage News & Events
-              </Card.Header>
-              <Card.Body>
-                <Fade in={!!error} unmountOnExit>
-                  <Alert variant="danger" onClose={() => setError(null)} dismissible>
-                    {error}
-                  </Alert>
-                </Fade>
-                <Fade in={!!success} unmountOnExit>
-                  <Alert variant="success" onClose={() => setSuccess(null)} dismissible>
-                    {success}
-                  </Alert>
-                </Fade>
-                <Tabs 
-                  activeKey={activeTab} 
-                  onSelect={(k) => {
-                    setActiveTab(k as 'news' | 'events');
-                    setError(null);
-                    setSuccess(null);
-                    if (k === 'news') {
-                      setEventFormData(initialEventFormData);
-                      setEventImagePreviews([]);
-                    } else if (k === 'events') {
-                      setNewsFormData(initialNewsFormData);
-                      setNewsImagePreviews([]);
-                    }
-                  }} 
-                  className="mb-4 nav-tabs-custom" 
-                  id="admin-news-events-tabs" 
-                  fill 
-                  transition={Fade}
-                >
-                  <Tab eventKey="news" title={<><i className="bi bi-newspaper me-2"></i>Add News</>}>
-                    <div className="tab-content-custom p-3 border border-top-0">
-                      {renderNewsForm()}
-                    </div>
-                  </Tab>
-                  <Tab eventKey="events" title={<><i className="bi bi-calendar-event me-2"></i>Add Event</>}>
-                    <div className="tab-content-custom p-3 border border-top-0">
-                      {renderEventForm()}
-                    </div>
-                  </Tab>
-                </Tabs>
-              </Card.Body>
-            </Card>
-          </Fade>
-        </Col>
-      </Row>
-    </Container>
+    <div className="w-full max-w-7xl mx-auto py-8 px-4">
+      {/* --- Page Header --- */}
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Manage Content</h1>
+        <p className="text-gray-500 dark:text-gray-400">Create new news articles or schedule upcoming events.</p>
+      </div>
+
+      {/* --- Alerts --- */}
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 flex items-center justify-between animate-fade-in-down">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700">&times;</button>
+        </div>
+      )}
+      {success && (
+        <div className="mb-6 p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 flex items-center justify-between animate-fade-in-down">
+          <span>{success}</span>
+          <button onClick={() => setSuccess(null)} className="text-green-500 hover:text-green-700">&times;</button>
+        </div>
+      )}
+
+      {/* --- Tab Navigation --- */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden min-h-[600px]">
+        <div className="flex border-b border-gray-100 dark:border-gray-800">
+          <button
+            onClick={() => { setActiveTab('news'); setError(null); setSuccess(null); }}
+            className={`flex-1 py-4 text-center font-medium transition-colors border-b-2 ${activeTab === 'news' ? 'border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+          >
+            Add News
+          </button>
+          <button
+            onClick={() => { setActiveTab('events'); setError(null); setSuccess(null); }}
+            className={`flex-1 py-4 text-center font-medium transition-colors border-b-2 ${activeTab === 'events' ? 'border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10' : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800'}`}
+          >
+            Add Event
+          </button>
+        </div>
+
+        {/* --- Tab Content --- */}
+        <div className="p-6 md:p-8">
+          {activeTab === 'news' ? renderNewsForm() : renderEventForm()}
+        </div>
+      </div>
+    </div>
   );
 };
 

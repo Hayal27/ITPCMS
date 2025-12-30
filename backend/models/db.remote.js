@@ -1,20 +1,33 @@
 const mysql = require("mysql");
 require('dotenv').config();
 
-const con = mysql.createConnection({
-  host: process.env.MYSQLHOST || process.env.MYSQL_HOST,
-  user: process.env.MYSQLUSER || process.env.MYSQL_USER,
-  password: process.env.MYSQLPASSWORD || process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQLDATABASE || process.env.MYSQL_DATABASE,
-  port: process.env.MYSQLPORT || 3306, // default MySQL port if not set
+const pool = mysql.createPool({
+  connectionLimit: 10,
+  host: process.env.MYSQLHOST  ,
+  user: process.env.MYSQLUSER ,
+  password: process.env.MYSQLPASSWORD ,
+  database: process.env.MYSQLDATABASE ,
+  port: process.env.MYSQLPORT , // default MySQL port if not set
 });
 
-con.connect((err) => {
+pool.getConnection((err, connection) => {
   if (err) {
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+      console.error('Remote Database connection was closed.');
+    }
+    if (err.code === 'ER_CON_COUNT_ERROR') {
+      console.error('Remote Database has too many connections.');
+    }
+    if (err.code === 'ECONNREFUSED') {
+      console.error('Remote Database connection was refused.');
+    }
     console.error("Error connecting to remote MySQL:", err);
     return;
   }
-  console.log("Connected to remote MySQL database");
+  if (connection) {
+    console.log("Connected to remote MySQL database (via pool)");
+    connection.release();
+  }
 });
 
-module.exports = con;
+module.exports = pool;

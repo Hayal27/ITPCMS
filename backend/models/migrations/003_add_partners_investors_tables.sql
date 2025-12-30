@@ -1,0 +1,47 @@
+CREATE TABLE IF NOT EXISTS partners (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    partner_id VARCHAR(50) UNIQUE NOT NULL,
+    company_name VARCHAR(255) NOT NULL,
+    contact_name VARCHAR(255),
+    contact_email VARCHAR(255),
+    partnership_type VARCHAR(100),
+    country VARCHAR(100),
+    zone VARCHAR(100),
+    industry_type VARCHAR(100),
+    agreement_start_date DATETIME,
+    agreement_end_date DATETIME,
+    status ENUM('Active', 'Inactive', 'Ongoing') DEFAULT 'Active',
+    services_provided TEXT, -- Store as JSON string
+    logo VARCHAR(255),
+    description TEXT,
+    meta_title VARCHAR(255),
+    meta_description TEXT,
+    meta_keywords TEXT,
+    slug VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS investors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    investor_id VARCHAR(50) UNIQUE NOT NULL,
+    company_name VARCHAR(255) NOT NULL,
+    property_name VARCHAR(255),
+    industry_type VARCHAR(100),
+    availability_status VARCHAR(100),
+    zone VARCHAR(100),
+    country VARCHAR(100),
+    description TEXT,
+    contact_name VARCHAR(255),
+    contact_phone VARCHAR(50),
+    investment_type VARCHAR(100),
+    established_date DATE,
+    website VARCHAR(255),
+    image VARCHAR(255),
+    meta_title VARCHAR(255),
+    meta_description TEXT,
+    meta_keywords TEXT,
+    slug VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

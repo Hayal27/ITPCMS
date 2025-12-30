@@ -28,6 +28,14 @@ import ManageGallery from './pages/content/ManageGallery'
 import PagesPage from './pages/content/PagesPage';
 import CategoriesPage from './pages/content/CategoriesPage';
 import TagsPage from './pages/content/TagsPage';
+import OfficeAdmin from './pages/content/OfficeAdmin';
+import LeasedLandAdmin from './pages/content/LeasedLandAdmin';
+import LiveEventAdmin from './pages/content/LiveEventAdmin';
+import CareerAdmin from './pages/content/CareerAdmin';
+import PartnersInvestorsAdmin from './pages/content/PartnersInvestorsAdmin';
+import IncubationAdmin from './pages/content/IncubationAdmin';
+import TrainingAdmin from './pages/content/TrainingAdmin';
+import InvestmentStepsAdmin from './pages/content/InvestmentStepsAdmin';
 
 // Media (Protected)
 import MediaLibraryPage from './pages/media/MediaLibraryPage';
@@ -36,6 +44,7 @@ import MediaLibraryPage from './pages/media/MediaLibraryPage';
 import CommentsPage from './pages/interaction/CommentsPage';
 import ManageFormsPage from './pages/interaction/forms/ManageFormsPage';
 import FormSubmissionsPage from './pages/interaction/forms/FormSubmissionsPage';
+import ContactMessagesPage from './pages/interaction/ContactMessagesPage';
 
 // Appearance (Protected)
 import MenusPage from './pages/appearance/MenusPage';
@@ -44,6 +53,7 @@ import ThemeSettingsPage from './pages/appearance/ThemeSettingsPage';
 // Users (Protected)
 import AllUsersPage from './pages/users/AllUsersPage';
 import AddNewUserPage from './pages/users/AddNewUserPage';
+import SubscribersAdmin from './pages/users/SubscribersAdmin';
 // import UserProfilePage from './pages/users/UserProfilePage'; // Assuming this page exists
 // import RolesPermissionsPage from './pages/users/RolesPermissionsPage'; // Assuming this page exists
 
@@ -122,18 +132,31 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="content/offices" element={<OfficeAdmin />} />
+                                        <Route path="content/leased-lands" element={<LeasedLandAdmin />} />
+                                        <Route path="content/live-events" element={<LiveEventAdmin />} />
+                                        <Route path="content/careers" element={<CareerAdmin />} />
+                                        <Route path="content/partners-investors" element={<PartnersInvestorsAdmin />} />
+                                        <Route path="content/incubation" element={<IncubationAdmin />} />
+                                        <Route path="content/trainings" element={<TrainingAdmin />} />
+                                        <Route path="content/investment-steps" element={<InvestmentStepsAdmin />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/subscribers" element={<SubscribersAdmin />} />
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> Route for specific user profile */}
                                         {/* <Route path="users/roles" element={<RolesPermissionsPage />} /> */}
 
@@ -159,12 +182,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -188,12 +215,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -215,12 +246,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -242,12 +277,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -269,12 +308,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -296,12 +339,16 @@ const AppContent: React.FC = () => {
                                         <Route path="content/pages" element={<PagesPage />} />
                                         <Route path="content/categories" element={<CategoriesPage />} />
                                         <Route path="content/tags" element={<TagsPage />} />
+                                        <Route path="post/managePosts" element={<ManagePosts />} />
+                                        <Route path="post/gallery" element={<MediaGalleryAdmin />} />
+                                        <Route path="post/manageGallery" element={<ManageGallery />} />
 
                                         <Route path="media/library" element={<MediaLibraryPage />} /> {/* Updated path */}
 
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -334,6 +381,7 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/comments" element={<CommentsPage />} />
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
+                                        <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
 
                                         <Route path="appearance/menus" element={<MenusPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
@@ -343,7 +391,7 @@ const AppContent: React.FC = () => {
                                         {/* Add Role 8 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
-                                   
+
                                     </>
                                 ) : ( // Fallback/Default Routes for other authenticated roles
                                     <>
