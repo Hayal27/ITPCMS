@@ -6,7 +6,7 @@ import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 import './MediaGalleryAdmin.css';
 
 // --- START: API service section ---
-export const BACKEND_URL = "http://localhost:5001";
+export const BACKEND_URL = "https://api-cms.startechaigroup.com";
 
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
   try {
@@ -50,23 +50,23 @@ export type MediaFormData = Omit<MediaItem, 'id' | 'src' | 'poster'> & {
 };
 
 const getYoutubeEmbedUrl = (url: string): string | null => {
-    if (!url) return null;
-    let videoId = null;
-    try {
-        const urlObj = new URL(url);
-        if (urlObj.hostname === 'youtu.be') {
-            videoId = urlObj.pathname.slice(1);
-        } else if (urlObj.hostname.includes('youtube.com')) {
-            videoId = urlObj.searchParams.get('v');
-        }
-        return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
-    } catch (e) {
-        // Try regex for non-standard URLs or if URL constructor fails
-        const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-        const match = url.match(regex);
-        videoId = match ? match[1] : null;
-        return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  if (!url) return null;
+  let videoId = null;
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname === 'youtu.be') {
+      videoId = urlObj.pathname.slice(1);
+    } else if (urlObj.hostname.includes('youtube.com')) {
+      videoId = urlObj.searchParams.get('v');
     }
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  } catch (e) {
+    // Try regex for non-standard URLs or if URL constructor fails
+    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(regex);
+    videoId = match ? match[1] : null;
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : null;
+  }
 };
 
 
@@ -86,7 +86,7 @@ const buildMediaFormData = (mediaData: MediaFormData | Partial<MediaFormData>): 
   } else if (mediaData.type === 'video' && mediaData.youtubeUrl) {
     const embedUrl = getYoutubeEmbedUrl(mediaData.youtubeUrl);
     if (embedUrl) {
-        formData.append('src', embedUrl); // Send the embed URL as src
+      formData.append('src', embedUrl); // Send the embed URL as src
     }
     formData.append('youtubeUrl', mediaData.youtubeUrl); // Also send original for backend reference if needed
   }
@@ -110,7 +110,7 @@ export const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike'],
-    [{'list': 'ordered'}, {'list': 'bullet'}],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
     ['link', 'image', 'video'],
     [{ 'align': [] }],
     ['clean']
@@ -148,7 +148,7 @@ const MediaGalleryAdmin: React.FC = () => {
   const [formData, setFormData] = useState<MediaFormData>(initialMediaFormData);
   const [mediaFilePreview, setMediaFilePreview] = useState<string | null>(null);
   const [posterFilePreview, setPosterFilePreview] = useState<string | null>(null);
-  
+
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -181,14 +181,14 @@ const MediaGalleryAdmin: React.FC = () => {
       }
       return newState;
     });
-     if (name === 'type' && value === 'image') {
-        // Clear poster file and preview if type changes to image AND it was a video before
-        // (assuming poster is mainly for videos)
-        // If poster can be for images too, this logic might change
-        setFormData(prev => ({ ...prev, posterFile: undefined }));
-        setPosterFilePreview(null);
-        const posterInput = document.getElementById('mediaPosterFile') as HTMLInputElement | null;
-        if (posterInput) posterInput.value = "";
+    if (name === 'type' && value === 'image') {
+      // Clear poster file and preview if type changes to image AND it was a video before
+      // (assuming poster is mainly for videos)
+      // If poster can be for images too, this logic might change
+      setFormData(prev => ({ ...prev, posterFile: undefined }));
+      setPosterFilePreview(null);
+      const posterInput = document.getElementById('mediaPosterFile') as HTMLInputElement | null;
+      if (posterInput) posterInput.value = "";
     }
   };
 
@@ -234,25 +234,25 @@ const MediaGalleryAdmin: React.FC = () => {
       setLoading(false); return;
     }
     if (formData.type === 'image' && formData.mediaFile && !formData.mediaFile.type.startsWith('image/')) {
-        setError('Please select a valid image file.');
-        setLoading(false); return;
+      setError('Please select a valid image file.');
+      setLoading(false); return;
     }
 
     if (formData.type === 'video') {
-        if (!formData.youtubeUrl) {
-            setError('A YouTube URL is required for type "Video".');
-            setLoading(false); return;
-        }
-        const embedUrl = getYoutubeEmbedUrl(formData.youtubeUrl);
-        if (!embedUrl) {
-            setError('Invalid YouTube URL format. Please provide a valid YouTube video link.');
-            setLoading(false); return;
-        }
-    }
-    
-    if (formData.posterFile && !formData.posterFile.type.startsWith('image/')) {
-        setError('Please select a valid image file for the poster.');
+      if (!formData.youtubeUrl) {
+        setError('A YouTube URL is required for type "Video".');
         setLoading(false); return;
+      }
+      const embedUrl = getYoutubeEmbedUrl(formData.youtubeUrl);
+      if (!embedUrl) {
+        setError('Invalid YouTube URL format. Please provide a valid YouTube video link.');
+        setLoading(false); return;
+      }
+    }
+
+    if (formData.posterFile && !formData.posterFile.type.startsWith('image/')) {
+      setError('Please select a valid image file for the poster.');
+      setLoading(false); return;
     }
 
     try {
@@ -261,7 +261,7 @@ const MediaGalleryAdmin: React.FC = () => {
       setFormData(initialMediaFormData);
       setMediaFilePreview(null);
       setPosterFilePreview(null);
-      
+
       const mediaInput = document.getElementById('mediaFile') as HTMLInputElement | null;
       if (mediaInput) mediaInput.value = "";
       const posterInput = document.getElementById('mediaPosterFile') as HTMLInputElement | null;
@@ -301,7 +301,7 @@ const MediaGalleryAdmin: React.FC = () => {
               </Form.Group>
             </Col>
           </Row>
-          
+
           <Form.Group className="mb-3" controlId="mediaType">
             <Form.Label>Type</Form.Label>
             <Form.Select name="type" value={formData.type} onChange={handleInputChange} required>
@@ -311,12 +311,12 @@ const MediaGalleryAdmin: React.FC = () => {
 
           <Form.Group className="mb-3" controlId="mediaDescription">
             <Form.Label>Description</Form.Label>
-            <ReactQuill 
-              theme="snow" 
-              value={formData.description} 
-              onChange={handleDescriptionChange} 
-              modules={quillModules} 
-              formats={quillFormats} 
+            <ReactQuill
+              theme="snow"
+              value={formData.description}
+              onChange={handleDescriptionChange}
+              modules={quillModules}
+              formats={quillFormats}
               className="quill-editor-container"
             />
           </Form.Group>
@@ -326,11 +326,11 @@ const MediaGalleryAdmin: React.FC = () => {
           {formData.type === 'image' && (
             <Form.Group className="mb-3" controlId="mediaFile">
               <Form.Label>Image File</Form.Label>
-              <Form.Control 
-                type="file" 
-                name="mediaFile" 
-                accept="image/*" 
-                onChange={(e: ChangeEvent<HTMLInputElement>) => handleFileChange(e, 'mediaFile')} 
+              <Form.Control
+                type="file"
+                name="mediaFile"
+                accept="image/*"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleFileChange(e, 'mediaFile')}
                 required={formData.type === 'image'}
               />
             </Form.Group>
@@ -346,11 +346,11 @@ const MediaGalleryAdmin: React.FC = () => {
             <>
               <Form.Group className="mb-3" controlId="youtubeUrl">
                 <Form.Label>YouTube Video URL</Form.Label>
-                <Form.Control 
-                  type="url" 
-                  name="youtubeUrl" 
-                  value={formData.youtubeUrl || ''} 
-                  onChange={handleInputChange} 
+                <Form.Control
+                  type="url"
+                  name="youtubeUrl"
+                  value={formData.youtubeUrl || ''}
+                  onChange={handleInputChange}
                   placeholder="e.g., https://www.youtube.com/watch?v=VIDEO_ID"
                   required={formData.type === 'video'}
                 />
@@ -377,11 +377,11 @@ const MediaGalleryAdmin: React.FC = () => {
             <Form.Label>
               {formData.type === 'video' ? 'Custom Video Poster (Optional)' : 'Poster Image (Optional)'}
             </Form.Label>
-            <Form.Control 
-              type="file" 
-              name="posterFile" 
-              accept="image/*" 
-              onChange={(e: ChangeEvent<HTMLInputElement>) => handleFileChange(e, 'posterFile')} 
+            <Form.Control
+              type="file"
+              name="posterFile"
+              accept="image/*"
+              onChange={(e: ChangeEvent<HTMLInputElement>) => handleFileChange(e, 'posterFile')}
             />
           </Form.Group>
           {posterFilePreview && (
@@ -413,9 +413,9 @@ const MediaGalleryAdmin: React.FC = () => {
                 <Fade in={!!success} unmountOnExit>
                   <Alert variant="success" onClose={() => setSuccess(null)} dismissible>{success}</Alert>
                 </Fade>
-                
+
                 <div className="tab-content-custom p-3">
-                    {renderMediaForm()}
+                  {renderMediaForm()}
                 </div>
 
               </Card.Body>

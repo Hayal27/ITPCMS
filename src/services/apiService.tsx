@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export const BACKEND_URL = "http://localhost:5001"; // Base URL for your backend
+export const BACKEND_URL = "https://api-cms.startechaigroup.com"; // Base URL for your backend
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
@@ -68,13 +68,37 @@ export interface EventItem {
 
 // FormData types for creating/updating posts
 // NewsFormData now uses imageFiles for multiple image uploads
-export type NewsFormData = Omit<NewsItem, 'id' | 'comments' | 'image' | 'createdAt' | 'updatedAt'> & { 
+export type NewsFormData = Omit<NewsItem, 'id' | 'comments' | 'image' | 'createdAt' | 'updatedAt'> & {
   imageFiles?: File[]; // For multiple file uploads
 };
 
-export type EventFormData = Omit<EventItem, 'id' | 'comments' | 'image' | 'createdAt' | 'updatedAt'> & { 
+export type EventFormData = Omit<EventItem, 'id' | 'comments' | 'image' | 'createdAt' | 'updatedAt'> & {
   imageFile?: File; // For single file upload
 };
+
+// --- MEDIA GALLERY API ---
+export interface MediaItem {
+  id: number | string;
+  title: string;
+  type: 'image' | 'video';
+  src: string;
+  date: string;
+  category: string;
+  description?: string;
+  poster?: string;
+}
+
+export interface MediaFormData {
+  title: string;
+  date: string;
+  category: string;
+  type: 'image' | 'video';
+  description?: string;
+  mediaFiles?: File[]; // Support multiple files for batch upload
+  posterFile?: File;
+  youtubeUrl?: string;
+  src?: string; // For video embed URL
+}
 
 
 // Helper to build FormData for News
@@ -94,15 +118,8 @@ const buildNewsFormData = (newsData: Partial<NewsFormData>): FormData => {
   });
 
   if (newsData.tags && newsData.tags.length > 0) {
-    // Backend expects 'tags' for each tag if sent as individual fields,
-    // or a single 'tags' field if it's a JSON string or comma-separated.
-    // Assuming backend from profileUploadController.js handles 'tags' as an array from FormData
     newsData.tags.forEach(tag => formData.append('tags', tag));
   } else if (newsData.tags === undefined || (Array.isArray(newsData.tags) && newsData.tags.length === 0)) {
-    // If you need to explicitly send an empty array or clear tags,
-    // your backend needs to handle an empty 'tags' field or absence of it.
-    // formData.append('tags', ''); // This might be interpreted as one tag that is an empty string.
-    // It's often better to just not send 'tags' if it's empty, unless backend requires it.
   }
 
   // Handle multiple image files for News
@@ -118,10 +135,10 @@ const buildNewsFormData = (newsData: Partial<NewsFormData>): FormData => {
 const buildEventFormData = (eventData: Partial<EventFormData>): FormData => {
   const formData = new FormData();
   (Object.keys(eventData) as Array<keyof Partial<EventFormData>>).forEach(key => {
-    if (key === 'imageFile' || key === 'tags') return; 
+    if (key === 'imageFile' || key === 'tags') return;
     const value = eventData[key];
     if (value !== undefined && value !== null) {
-       if (typeof value === 'boolean') {
+      if (typeof value === 'boolean') {
         formData.append(key, String(value));
       } else {
         formData.append(key, String(value));
@@ -131,7 +148,6 @@ const buildEventFormData = (eventData: Partial<EventFormData>): FormData => {
   if (eventData.tags && eventData.tags.length > 0) {
     eventData.tags.forEach(tag => formData.append('tags', tag));
   } else if (eventData.tags === undefined || (Array.isArray(eventData.tags) && eventData.tags.length === 0)) {
-    // Similar consideration for empty tags as in buildNewsFormData
   }
 
   if (eventData.imageFile instanceof File) {
@@ -141,38 +157,31 @@ const buildEventFormData = (eventData: Partial<EventFormData>): FormData => {
 };
 
 // --- NEWS API ---
-// The addNews function would be in NewsEventsAdmin.tsx or similar, using buildNewsFormData
-// This file primarily focuses on GET, PUT, DELETE for existing items.
-
 export const getNews = async (): Promise<NewsItem[]> => {
-  // The backend response structure for news items (item.image is string[])
-  // is now correctly typed by NewsItem[]
   const response = await request<{ success: boolean, news: NewsItem[] }>('/news', { method: 'GET' });
   if (response.success) {
-    // Ensure date is yyyy-mm-dd for date inputs, and tags/image are arrays
     return response.news.map(n => ({
-        ...n, 
-        date: n.date ? n.date.split('T')[0] : '', // Handle potentially null/undefined date
-        tags: Array.isArray(n.tags) ? n.tags : [],
-        image: Array.isArray(n.image) ? n.image : (n.image ? [n.image] : []), // Ensure image is always array
+      ...n,
+      date: n.date ? n.date.split('T')[0] : '',
+      tags: Array.isArray(n.tags) ? n.tags : [],
+      image: Array.isArray(n.image) ? n.image : (n.image ? [n.image] : []),
     }));
   }
   throw new Error("Failed to fetch news or backend response was not successful.");
 };
 
 export const updateNewsItem = async (id: string | number, newsData: Partial<NewsFormData>): Promise<NewsItem> => {
-  const formData = buildNewsFormData(newsData); // Uses updated helper
+  const formData = buildNewsFormData(newsData);
   const updatedItem = await request<NewsItem>(`/editNews/${id}`, {
     method: 'PUT',
     data: formData,
   });
-  // Ensure date is yyyy-mm-dd and image/tags are arrays after update
   return {
-      ...updatedItem, 
-      date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
-      tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
-      image: Array.isArray(updatedItem.image) ? updatedItem.image : (updatedItem.image ? [updatedItem.image] : []),
-    };
+    ...updatedItem,
+    date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
+    tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
+    image: Array.isArray(updatedItem.image) ? updatedItem.image : (updatedItem.image ? [updatedItem.image] : []),
+  };
 };
 
 export const deleteNewsItem = async (id: string | number): Promise<void> => {
@@ -181,17 +190,13 @@ export const deleteNewsItem = async (id: string | number): Promise<void> => {
 
 // --- EVENTS API ---
 export const getEvents = async (): Promise<EventItem[]> => {
-  // The backend response structure for event items (item.image is string | null)
-  // is now correctly typed by EventItem[]
   const response = await request<{ success: boolean, events: EventItem[] }>('/events', { method: 'GET' });
   if (response.success) {
-    // Ensure date is yyyy-mm-dd and tags is an array
     return response.events.map(e => ({
-        ...e, 
-        date: e.date ? e.date.split('T')[0] : '',
-        tags: Array.isArray(e.tags) ? e.tags : [],
-        // image is already string | null, no specific transformation needed here unless to ensure null for empty strings
-        image: e.image === "" ? null : e.image, 
+      ...e,
+      date: e.date ? e.date.split('T')[0] : '',
+      tags: Array.isArray(e.tags) ? e.tags : [],
+      image: e.image === "" ? null : e.image,
     }));
   }
   throw new Error("Failed to fetch events or backend response was not successful.");
@@ -203,69 +208,77 @@ export const updateEventItem = async (id: string | number, eventData: Partial<Ev
     method: 'PUT',
     data: formData,
   });
-   // Ensure date is yyyy-mm-dd and tags is an array after update
   return {
-      ...updatedItem, 
-      date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
-      tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
-      image: updatedItem.image === "" ? null : updatedItem.image,
-    };
+    ...updatedItem,
+    date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
+    tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
+    image: updatedItem.image === "" ? null : updatedItem.image,
+  };
 };
 
 export const deleteEventItem = async (id: string | number): Promise<void> => {
   await request<{ success: boolean, message?: string }>(`/deleteEvent/${id}`, { method: 'DELETE' });
 };
 
-// Note: The addNews and addEvent functions that use NewsFormData/EventFormData
-// are typically located in the component that handles the form submission (e.g., NewsEventsAdmin.tsx)
-// and would use these buildFormData helpers. If you want them here, they would look like:
+// --- CONTACT API ---
+export interface ContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+  status: 'new' | 'read' | 'replied';
+  created_at: string;
+}
 
-/*
-export const addNewsItemAPI = async (newsData: NewsFormData): Promise<NewsItem> => {
-  const formData = buildNewsFormData(newsData);
-  // Assuming backend returns the created news item matching NewsItem structure
-  const response = await request<{ success: boolean; message: string; newsId: number; imageUrls: string[]; youtubeUrl?: string }>('/news', {
+export const getContactMessages = async (): Promise<ContactMessage[]> => {
+  const response = await request<{ success: boolean, data: ContactMessage[] }>('/admin/messages', { method: 'GET' });
+  if (response.success) {
+    return response.data;
+  }
+  throw new Error("Failed to fetch contact messages");
+};
+
+export const markMessageAsRead = async (id: number | string): Promise<void> => {
+  await request<{ success: boolean, message: string }>(`/admin/messages/${id}/read`, { method: 'PUT' });
+};
+
+export const deleteContactMessage = async (id: number | string): Promise<void> => {
+  await request<{ success: boolean, message: string }>(`/admin/messages/${id}`, { method: 'DELETE' });
+};
+
+// --- MEDIA API ---
+export const getMediaItems = async (): Promise<MediaItem[]> => {
+  const response = await request<{ success: boolean, mediaItems: MediaItem[] }>('/media', { method: 'GET' });
+  if (response.success) {
+    return response.mediaItems;
+  }
+  throw new Error("Failed to fetch media items");
+};
+
+export const addMediaItem = async (mediaData: MediaFormData): Promise<any> => {
+  const formData = new FormData();
+  formData.append('title', mediaData.title);
+  formData.append('date', mediaData.date);
+  formData.append('category', mediaData.category);
+  formData.append('type', mediaData.type);
+  if (mediaData.description) formData.append('description', mediaData.description);
+
+  if (mediaData.type === 'image' && mediaData.mediaFiles) {
+    mediaData.mediaFiles.forEach(file => {
+      formData.append('mediaFile', file, file.name);
+    });
+  } else if (mediaData.type === 'video' && mediaData.src) {
+    formData.append('src', mediaData.src);
+    if (mediaData.youtubeUrl) formData.append('youtubeUrl', mediaData.youtubeUrl);
+  }
+
+  if (mediaData.posterFile) {
+    formData.append('posterFile', mediaData.posterFile);
+  }
+
+  return request<any>('/media', {
     method: 'POST',
     data: formData,
   });
-  // Construct a NewsItem-like object from response
-  // This part depends heavily on the exact structure of your POST /news response
-  return {
-    id: response.newsId,
-    title: newsData.title,
-    date: newsData.date.split('T')[0],
-    category: newsData.category,
-    image: response.imageUrls, // from backend
-    description: newsData.description,
-    featured: newsData.featured,
-    readTime: newsData.readTime,
-    tags: newsData.tags,
-    youtubeUrl: response.youtubeUrl || newsData.youtubeUrl,
-    // createdAt, updatedAt would typically come from the backend response if needed
-  };
 };
-
-export const addEventItemAPI = async (eventData: EventFormData): Promise<EventItem> => {
-  const formData = buildEventFormData(eventData);
-  // Assuming backend returns the created event item matching EventItem structure
-  const response = await request<{ success: boolean; message: string; eventId: number; imageUrl: string | null; }>('/events', {
-    method: 'POST',
-    data: formData,
-  });
-  // Construct an EventItem-like object from response
-  return {
-    id: response.eventId,
-    title: eventData.title,
-    date: eventData.date.split('T')[0],
-    time: eventData.time,
-    venue: eventData.venue,
-    image: response.imageUrl, // from backend
-    description: eventData.description,
-    featured: eventData.featured,
-    registrationLink: eventData.registrationLink,
-    capacity: eventData.capacity,
-    tags: eventData.tags,
-    // createdAt, updatedAt would typically come from the backend response if needed
-  };
-};
-*/

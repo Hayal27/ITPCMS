@@ -2,6 +2,7 @@ const con = require("../models/db"); // Assumes you have a db.js file that expor
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const subscriptionController = require("./subscriptionController");
 
 // Configure Multer for file storage
 const storage = multer.diskStorage({
@@ -60,7 +61,7 @@ const uploadProfilePicture = (req, res) => {
       return res.status(400).json({ error: "No file uploaded." });
     }
 
-    const avatarUrl = `/uploads/${req.file.filename}`; 
+    const avatarUrl = `/uploads/${req.file.filename}`;
 
     const sql = `UPDATE users SET avatar_url = ? WHERE user_id = ?`;
     con.query(sql, [avatarUrl, user_id], (dbErr, result) => {
@@ -142,16 +143,16 @@ const postNews = (req, res) => {
     const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
     const imagesJson = JSON.stringify(imageUrls);
     const isFeatured = featured === 'true' || featured === true;
-    
+
     let tagsJson = null;
     if (tags) {
-        if (Array.isArray(tags)) {
-            tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
-        } else if (typeof tags === 'string') {
-            tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t)); 
-        }
+      if (Array.isArray(tags)) {
+        tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
+      } else if (typeof tags === 'string') {
+        tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t));
+      }
     } else {
-        tagsJson = JSON.stringify([]); // Store empty array if no tags
+      tagsJson = JSON.stringify([]); // Store empty array if no tags
     }
 
     const finalYoutubeUrl = youtubeUrl && youtubeUrl.trim() !== '' ? youtubeUrl.trim() : null;
@@ -170,43 +171,52 @@ const postNews = (req, res) => {
         return res.status(500).json({ error: "Failed to save news item to database." });
       }
       console.log(`News item added: ${title}, ID: ${result.insertId}`);
-      res.status(201).json({ 
-        success: true, 
-        message: "News item added successfully.", 
-        newsId: result.insertId, 
+      res.status(201).json({
+        success: true,
+        message: "News item added successfully.",
+        newsId: result.insertId,
         imageUrls: imageUrls, // Relative URLs
-        youtubeUrl: finalYoutubeUrl 
+        youtubeUrl: finalYoutubeUrl
       });
+
+      // Notify subscribers about new news
+      const newsItem = {
+        id: result.insertId,
+        title,
+        date,
+        description
+      };
+      subscriptionController.notifySubscribers('news', newsItem);
     });
   });
 };
 // Configure storage for event images (same as news images)
 const eventStorage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadPath = path.join(__dirname, "../uploads");
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
-    },
-    filename: function (req, file, cb) {
-        cb(null, `${Date.now()}-${file.originalname}`);
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(__dirname, "../uploads");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  }
 });
 
 // Create multer upload instance for multiple event images
 const uploadMultipleEventImages = multer({
-    storage: eventStorage,
-    limits: { 
-        fileSize: 5 * 1024 * 1024, // 5MB file size limit per file
-    },
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith('image/')) {
-            cb(null, true);
-        } else {
-            cb(new Error('Only image files are allowed!'), false);
-        }
+  storage: eventStorage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB file size limit per file
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'), false);
     }
+  }
 }).array('newsImages', 10); // Using same field name as news images for consistency
 const postEvent = (req, res) => {
   uploadMultipleEventImages(req, res, async (err) => {
@@ -235,16 +245,16 @@ const postEvent = (req, res) => {
     const imageUrls = req.files.map(file => `/uploads/${file.filename}`);
     const imagesJson = JSON.stringify(imageUrls);
     const isFeatured = featured === 'true' || featured === true;
-    
+
     let tagsJson = null;
     if (tags) {
-        if (Array.isArray(tags)) {
-            tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
-        } else if (typeof tags === 'string') {
-            tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t));
-        }
+      if (Array.isArray(tags)) {
+        tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
+      } else if (typeof tags === 'string') {
+        tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t));
+      }
     } else {
-        tagsJson = JSON.stringify([]); // Store empty array if no tags
+      tagsJson = JSON.stringify([]); // Store empty array if no tags
     }
 
     const sql = `INSERT INTO events (title, date, time, venue, image, description, featured, registrationLink, capacity, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -261,12 +271,21 @@ const postEvent = (req, res) => {
         return res.status(500).json({ error: "Failed to save event item to database." });
       }
       console.log(`Event item added: ${title}, ID: ${result.insertId}`);
-      res.status(201).json({ 
-        success: true, 
-        message: "Event item added successfully.", 
-        eventId: result.insertId, 
+      res.status(201).json({
+        success: true,
+        message: "Event item added successfully.",
+        eventId: result.insertId,
         imageUrls: imageUrls // Send relative URLs back
       });
+
+      // Notify subscribers about new event
+      const eventItem = {
+        id: result.insertId,
+        title,
+        date,
+        description
+      };
+      subscriptionController.notifySubscribers('event', eventItem);
     });
   });
 };
@@ -298,20 +317,20 @@ const getNews = (req, res) => {
           }
         }
       }
-      
+
       let tagsArray = [];
       if (item.tags) {
         try {
-            tagsArray = JSON.parse(item.tags);
-            if (!Array.isArray(tagsArray)) tagsArray = [String(tagsArray)]; 
+          tagsArray = JSON.parse(item.tags);
+          if (!Array.isArray(tagsArray)) tagsArray = [String(tagsArray)];
         } catch (e) {
-            console.error("Error parsing tags JSON for news item ID " + item.id + ":", e);
-            tagsArray = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+          console.error("Error parsing tags JSON for news item ID " + item.id + ":", e);
+          tagsArray = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()).filter(t => t) : [];
         }
       }
-      
-      return { 
-        ...item, 
+
+      return {
+        ...item,
         image: imageUrls, // Full URLs
         tags: tagsArray,
         youtubeUrl: item.youtubeUrl || null
@@ -336,15 +355,15 @@ const getEvents = (req, res) => {
     const eventItems = results.map(item => {
       // Send full URL to client
       const imageUrl = item.image ? `${req.protocol}://${req.get("host")}${item.image}` : null;
-      
+
       let tagsArray = [];
       if (item.tags) {
         try {
-            tagsArray = JSON.parse(item.tags);
-            if (!Array.isArray(tagsArray)) tagsArray = [String(tagsArray)];
+          tagsArray = JSON.parse(item.tags);
+          if (!Array.isArray(tagsArray)) tagsArray = [String(tagsArray)];
         } catch (e) {
-            console.error("Error parsing tags JSON for event item ID " + item.id + ":", e);
-            tagsArray = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()).filter(t => t) : [];
+          console.error("Error parsing tags JSON for event item ID " + item.id + ":", e);
+          tagsArray = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()).filter(t => t) : [];
         }
       }
       return { ...item, image: imageUrl, tags: tagsArray }; // Full URL
@@ -384,10 +403,10 @@ const editNews = (req, res) => {
       }
       return res.status(400).json({ error: "News ID is required for editing." });
     }
-    
+
     const updateFields = {};
     const values = [];
-    
+
     // Dynamically build the update query based on provided fields
     if (title !== undefined) { updateFields.title = title; }
     if (date !== undefined) { updateFields.date = date; }
@@ -395,26 +414,26 @@ const editNews = (req, res) => {
     if (description !== undefined) { updateFields.description = description; }
     if (featured !== undefined) { updateFields.featured = (featured === 'true' || featured === true); }
     if (readTime !== undefined) { updateFields.readTime = readTime; }
-    
-    if (youtubeUrl !== undefined) { 
+
+    if (youtubeUrl !== undefined) {
       updateFields.youtubeUrl = (youtubeUrl && youtubeUrl.trim() !== '') ? youtubeUrl.trim() : null;
     }
 
     if (tags !== undefined) {
-        let tagsJson;
-        if (tags) { // handles null, empty string, etc.
-            if (Array.isArray(tags)) {
-                tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
-            } else if (typeof tags === 'string') {
-                // Split by comma, trim, and filter out empty strings
-                tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t)); 
-            } else {
-                 tagsJson = JSON.stringify([]); // If tags is present but not array/string (e.g. object, number)
-            }
-        } else { // If tags is explicitly null, empty string, or not a parsable format
-            tagsJson = JSON.stringify([]); 
+      let tagsJson;
+      if (tags) { // handles null, empty string, etc.
+        if (Array.isArray(tags)) {
+          tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
+        } else if (typeof tags === 'string') {
+          // Split by comma, trim, and filter out empty strings
+          tagsJson = JSON.stringify(tags.split(',').map(t => t.trim()).filter(t => t));
+        } else {
+          tagsJson = JSON.stringify([]); // If tags is present but not array/string (e.g. object, number)
         }
-        updateFields.tags = tagsJson;
+      } else { // If tags is explicitly null, empty string, or not a parsable format
+        tagsJson = JSON.stringify([]);
+      }
+      updateFields.tags = tagsJson;
     }
 
     let newImageUrlsArray = null;
@@ -439,18 +458,18 @@ const editNews = (req, res) => {
       }
       return res.status(400).json({ error: "No fields provided to update." });
     }
-    
+
     const setClauses = Object.keys(updateFields).map(key => `${con.escapeId(key)} = ?`);
     Object.values(updateFields).forEach(val => values.push(val));
 
     // This check should be redundant if the previous one (Object.keys(updateFields).length === 0) is correct
     if (setClauses.length === 0) {
-        if (req.files && req.files.length > 0) {
-            req.files.forEach(file => fs.unlink(file.path, (unlinkErr) => {
-                if (unlinkErr) console.error("Error deleting orphaned news image (edit, no SET clauses):", file.filename, unlinkErr);
-            }));
-        }
-        return res.status(400).json({ error: "No valid fields to update." });
+      if (req.files && req.files.length > 0) {
+        req.files.forEach(file => fs.unlink(file.path, (unlinkErr) => {
+          if (unlinkErr) console.error("Error deleting orphaned news image (edit, no SET clauses):", file.filename, unlinkErr);
+        }));
+      }
+      return res.status(400).json({ error: "No valid fields to update." });
     }
 
     values.push(newsId); // For the WHERE clause
@@ -482,9 +501,9 @@ const editNews = (req, res) => {
       }
 
       console.log(`News item updated: ID ${newsId}`);
-      const responsePayload = { 
-        success: true, 
-        message: "News item updated successfully.", 
+      const responsePayload = {
+        success: true,
+        message: "News item updated successfully.",
         newsId: newsId,
       };
       if (newImageUrlsArray) {
@@ -515,15 +534,15 @@ const deleteNews = (req, res) => {
     const imagePathsRaw = results[0].image;
     let imagePathsToDelete = [];
     if (imagePathsRaw) {
-        try {
-            const parsed = JSON.parse(imagePathsRaw);
-            imagePathsToDelete = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
-        } catch (e) {
-            if (typeof imagePathsRaw === 'string') { // Fallback for non-JSON string
-                imagePathsToDelete = [imagePathsRaw];
-            }
-            console.warn("Could not parse image JSON for news item ID " + newsId + " during deletion, attempting as single string if applicable.");
+      try {
+        const parsed = JSON.parse(imagePathsRaw);
+        imagePathsToDelete = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+      } catch (e) {
+        if (typeof imagePathsRaw === 'string') { // Fallback for non-JSON string
+          imagePathsToDelete = [imagePathsRaw];
         }
+        console.warn("Could not parse image JSON for news item ID " + newsId + " during deletion, attempting as single string if applicable.");
+      }
     }
 
     const deleteSql = "DELETE FROM news WHERE id = ?";
@@ -537,15 +556,15 @@ const deleteNews = (req, res) => {
       }
 
       if (imagePathsToDelete.length > 0) {
-          imagePathsToDelete.forEach(imgPath => {
-            if (imgPath && typeof imgPath === 'string') {
-                const fullPath = path.join(__dirname, "..", imgPath); // Corrected path
-                fs.unlink(fullPath, unlinkErr => {
-                if (unlinkErr) console.error(`Error deleting news image file ${fullPath}:`, unlinkErr);
-                else console.log(`Successfully deleted news image file: ${fullPath}`);
-                });
-            }
-          });
+        imagePathsToDelete.forEach(imgPath => {
+          if (imgPath && typeof imgPath === 'string') {
+            const fullPath = path.join(__dirname, "..", imgPath); // Corrected path
+            fs.unlink(fullPath, unlinkErr => {
+              if (unlinkErr) console.error(`Error deleting news image file ${fullPath}:`, unlinkErr);
+              else console.log(`Successfully deleted news image file: ${fullPath}`);
+            });
+          }
+        });
       }
       console.log(`News item ${newsId} deleted successfully.`);
       res.json({ success: true, message: "News item deleted successfully." });
@@ -641,22 +660,22 @@ const editEvent = (req, res) => {
       }
 
       const isFeatured = featured === 'true' || featured === true;
-      
+
       let tagsJson = null;
       // Process tags similar to postEvent: if tags are provided, use them; otherwise, they become an empty array.
       // This means to clear tags, send empty `tags`. To keep tags, client must resend current tags.
       if (tags) {
-          if (Array.isArray(tags)) {
-              tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
-          } else if (typeof tags === 'string') {
-              // Handle comma-separated string for tags, ensuring no empty strings after split/trim
-              const processedTags = tags.split(',').map(t => t.trim()).filter(t => t);
-              tagsJson = JSON.stringify(processedTags);
-          } else {
-              tagsJson = JSON.stringify([]); // If tags is present but not array/string, default to empty
-          }
+        if (Array.isArray(tags)) {
+          tagsJson = JSON.stringify(tags.map(t => String(t).trim()).filter(t => t));
+        } else if (typeof tags === 'string') {
+          // Handle comma-separated string for tags, ensuring no empty strings after split/trim
+          const processedTags = tags.split(',').map(t => t.trim()).filter(t => t);
+          tagsJson = JSON.stringify(processedTags);
+        } else {
+          tagsJson = JSON.stringify([]); // If tags is present but not array/string, default to empty
+        }
       } else {
-          tagsJson = JSON.stringify([]); // Store empty array if 'tags' field is not in req.body or is falsy
+        tagsJson = JSON.stringify([]); // Store empty array if 'tags' field is not in req.body or is falsy
       }
 
       const updateSql = `UPDATE events SET title = ?, date = ?, time = ?, venue = ?, image = ?, description = ?, featured = ?, registrationLink = ?, capacity = ?, tags = ? WHERE id = ?`;
@@ -674,15 +693,15 @@ const editEvent = (req, res) => {
         }
 
         if (result.affectedRows === 0) {
-            // This case might happen if the eventId was valid initially but deleted before update, or no actual data changed.
-            if (req.file) { // If a new image was uploaded but no rows were affected
-                fs.unlink(req.file.path, (unlinkErr) => {
-                  if (unlinkErr) console.error("Error deleting newly uploaded event image (no rows affected):", req.file.filename, unlinkErr);
-                });
-            }
-            // It's debatable whether this should be 404 or 200 with a specific message.
-            // For consistency with initial fetch, 404 if ID seems to be the issue.
-            return res.status(404).json({ error: "Event not found or no changes made that would affect rows." });
+          // This case might happen if the eventId was valid initially but deleted before update, or no actual data changed.
+          if (req.file) { // If a new image was uploaded but no rows were affected
+            fs.unlink(req.file.path, (unlinkErr) => {
+              if (unlinkErr) console.error("Error deleting newly uploaded event image (no rows affected):", req.file.filename, unlinkErr);
+            });
+          }
+          // It's debatable whether this should be 404 or 200 with a specific message.
+          // For consistency with initial fetch, 404 if ID seems to be the issue.
+          return res.status(404).json({ error: "Event not found or no changes made that would affect rows." });
         }
 
         // If a new image was uploaded successfully and it's different from the old one, delete the old image file
@@ -690,23 +709,23 @@ const editEvent = (req, res) => {
           // Construct the file system path for the old image.
           // Assumes 'uploads' directory is at the project root.
           // oldImageUrl is stored like "/uploads/image.jpg"
-          const oldImageFilePath = path.join(process.cwd(), oldImageUrl); 
+          const oldImageFilePath = path.join(process.cwd(), oldImageUrl);
           fs.unlink(oldImageFilePath, (unlinkErr) => {
             if (unlinkErr) {
-                // Log error but don't fail the request, as the main operation (DB update) succeeded.
-                console.error("Error deleting old event image:", oldImageFilePath, unlinkErr);
+              // Log error but don't fail the request, as the main operation (DB update) succeeded.
+              console.error("Error deleting old event image:", oldImageFilePath, unlinkErr);
             } else {
-                console.log("Old event image deleted successfully:", oldImageFilePath);
+              console.log("Old event image deleted successfully:", oldImageFilePath);
             }
           });
         }
 
         console.log(`Event item updated: ${title}, ID: ${eventId}`);
-        res.status(200).json({ 
-            success: true, 
-            message: "Event item updated successfully.", 
-            eventId: eventId, 
-            imageUrl: newImageUrl // Send relative URL of the (potentially new) image
+        res.status(200).json({
+          success: true,
+          message: "Event item updated successfully.",
+          eventId: eventId,
+          imageUrl: newImageUrl // Send relative URL of the (potentially new) image
         });
       });
     });
@@ -718,23 +737,22 @@ const editEvent = (req, res) => {
 
 const mediaUpload = multer({
   storage: storage,
-  limits: { fileSize: 1024 * 1024 * 25 }, // 25MB limit for images/posters
+  limits: { fileSize: 1024 * 1024 * 50 }, // 50MB limit for batch uploads
   fileFilter: (req, file, cb) => {
-    // Allow images for both mediaFile (if type is image) and posterFile
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only images are allowed for mediaFile (if type is image) and posterFile.'), false);
+      cb(new Error('Invalid file type. Only images are allowed.'), false);
     }
   }
 }).fields([
-  { name: 'mediaFile', maxCount: 1 }, // For image type
-  { name: 'posterFile', maxCount: 1 } // Optional poster for video or image
+  { name: 'mediaFile', maxCount: 20 }, // Increased maxCount for multiple images
+  { name: 'posterFile', maxCount: 1 }
 ]);
 
 
 // --- Controller for Adding Media Item ---
-// POST /api/media (adjust route if your frontend calls a different one)
+// POST /api/media
 const addMediaItem = (req, res) => {
   mediaUpload(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
@@ -751,73 +769,88 @@ const addMediaItem = (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields: title, date, category, or type.' });
     }
 
-    let imageUrl = src; // This will be the YouTube embed URL if type is video, or file path if image
     let posterSrc = null;
-    const originalYoutubeUrl = type === 'video' ? youtubeUrl : null;
-
-    // Handle mediaFile if type is 'image'
-    if (type === 'image') {
-      if (!req.files || !req.files.mediaFile || req.files.mediaFile.length === 0) {
-        return res.status(400).json({ success: false, message: 'Image file is required for type "image".' });
-      }
-      // Construct URL path for the image
-      imageUrl = `/uploads/${req.files.mediaFile[0].filename}`;
-    } else if (type === 'video') {
-      if (!src) { // src from frontend is the embed URL
-        return res.status(400).json({ success: false, message: 'YouTube embed URL (src) is required for type "video".' });
-      }
-      // imageUrl is already set to the YouTube embed URL from req.body.src
-    } else {
-      return res.status(400).json({ success: false, message: 'Invalid media type specified.' });
-    }
-
-    // Handle optional posterFile
     if (req.files && req.files.posterFile && req.files.posterFile.length > 0) {
       posterSrc = `/uploads/${req.files.posterFile[0].filename}`;
     }
 
-    const sql = `
-      INSERT INTO media_gallery (title, date, category, type, description, src, poster, youtube_url_original)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const values = [title, date, category, type, description || null, imageUrl, posterSrc, originalYoutubeUrl];
-
-    con.query(sql, values, (dbErr, result) => {
-      if (dbErr) {
-        console.error('Database error on adding media item:', dbErr);
-        // Cleanup uploaded files if DB insert fails
-        if (type === 'image' && req.files && req.files.mediaFile) {
-            fs.unlink(req.files.mediaFile[0].path, (unlinkErr) => {
-                if (unlinkErr) console.error("Error deleting mediaFile after DB error:", unlinkErr);
-            });
-        }
-        if (req.files && req.files.posterFile) {
-            fs.unlink(req.files.posterFile[0].path, (unlinkErr) => {
-                if (unlinkErr) console.error("Error deleting posterFile after DB error:", unlinkErr);
-            });
-        }
-        return res.status(500).json({ success: false, message: 'Failed to add media item to database.' });
+    if (type === 'image') {
+      if (!req.files || !req.files.mediaFile || req.files.mediaFile.length === 0) {
+        return res.status(400).json({ success: false, message: 'At least one image file is required for type "image".' });
       }
 
-      const newMediaItemId = result.insertId;
-      const newMediaItem = {
-        id: newMediaItemId,
-        title,
-        date,
-        category,
-        type,
-        description: description || null,
-        src: imageUrl,
-        poster: posterSrc,
-        youtubeUrl: originalYoutubeUrl // Frontend might expect this as youtubeUrl
-      };
+      const mediaFiles = req.files.mediaFile;
+      const insertSql = `
+        INSERT INTO media_gallery (title, date, category, type, description, src, poster, youtube_url_original)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
 
-      res.status(201).json({
-        success: true,
-        message: 'Media item added successfully!',
-        ...newMediaItem // Spread the newMediaItem directly as per frontend expectation
+      let processedCount = 0;
+      let errorCount = 0;
+      const insertedItems = [];
+
+      for (const file of mediaFiles) {
+        const imageUrl = `/uploads/${file.filename}`;
+        const values = [title, date, category, type, description || null, imageUrl, posterSrc, null];
+
+        try {
+          const result = await new Promise((resolve, reject) => {
+            con.query(insertSql, values, (dbErr, res) => {
+              if (dbErr) reject(dbErr);
+              else resolve(res);
+            });
+          });
+          insertedItems.push({
+            id: result.insertId,
+            title,
+            date,
+            category,
+            type,
+            src: imageUrl,
+            poster: posterSrc
+          });
+          processedCount++;
+        } catch (dbErr) {
+          console.error('Database error on adding multiple media items:', dbErr);
+          errorCount++;
+          // Unlink file if DB insert fails
+          fs.unlink(file.path, (uErr) => { if (uErr) console.error("Unlink error:", uErr); });
+        }
+      }
+
+      return res.status(processedCount > 0 ? 201 : 500).json({
+        success: processedCount > 0,
+        message: `${processedCount} media items added successfully.${errorCount > 0 ? ` ${errorCount} failed.` : ''}`,
+        items: insertedItems
       });
-    });
+
+    } else if (type === 'video') {
+      if (!src) {
+        return res.status(400).json({ success: false, message: 'YouTube embed URL (src) is required for type "video".' });
+      }
+
+      const sql = `
+        INSERT INTO media_gallery (title, date, category, type, description, src, poster, youtube_url_original)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      const values = [title, date, category, type, description || null, src, posterSrc, youtubeUrl || null];
+
+      con.query(sql, values, (dbErr, result) => {
+        if (dbErr) {
+          console.error('Database error on adding video media item:', dbErr);
+          return res.status(500).json({ success: false, message: 'Failed to add video to database.' });
+        }
+
+        res.status(201).json({
+          success: true,
+          message: 'Video media item added successfully!',
+          id: result.insertId,
+          title, date, category, type, src, poster: posterSrc
+        });
+      });
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid media type specified.' });
+    }
   });
 };
 
@@ -895,10 +928,10 @@ const updateMediaItem = (req, res) => {
         if (req.files && req.files.mediaFile && req.files.mediaFile.length > 0) {
           newimageUrl = `/uploads/${req.files.mediaFile[0].filename}`;
         } else if (!existingItem.src && type === 'image') { // New image type item must have file or existing src
-             // If type was already image and no new file is uploaded, newimageUrl remains existingItem.src
-             // If type changes to image, and no file is uploaded, it's an error if there's no existing src.
-             // However, if type changes to image, a new file *should* be uploaded.
-             // This logic assumes if type is 'image', src must be a file path.
+          // If type was already image and no new file is uploaded, newimageUrl remains existingItem.src
+          // If type changes to image, and no file is uploaded, it's an error if there's no existing src.
+          // However, if type changes to image, a new file *should* be uploaded.
+          // This logic assumes if type is 'image', src must be a file path.
         }
         newOriginalYoutubeUrl = null; // Images don't have a YouTube URL
       } else if (type === 'video') {
@@ -907,18 +940,18 @@ const updateMediaItem = (req, res) => {
           // If type changes to video and src is not provided, it's an error.
           if (existingItem.type !== 'video' || !existingItem.src) {
             // Cleanup newly uploaded files if any, before sending error
-            if (req.files && req.files.mediaFile) fs.unlink(req.files.mediaFile[0].path, e => e && console.error("Cleanup error mediaFile:",e));
-            if (req.files && req.files.posterFile) fs.unlink(req.files.posterFile[0].path, e => e && console.error("Cleanup error posterFile:",e));
+            if (req.files && req.files.mediaFile) fs.unlink(req.files.mediaFile[0].path, e => e && console.error("Cleanup error mediaFile:", e));
+            if (req.files && req.files.posterFile) fs.unlink(req.files.posterFile[0].path, e => e && console.error("Cleanup error posterFile:", e));
             return res.status(400).json({ success: false, message: 'YouTube embed URL (src) is required for type "video".' });
           }
         } else {
-            newimageUrl = src; // Use the new embed URL
+          newimageUrl = src; // Use the new embed URL
         }
         // newOriginalYoutubeUrl is already set from req.body.youtubeUrl
       } else {
         // Cleanup newly uploaded files if any, before sending error
-        if (req.files && req.files.mediaFile) fs.unlink(req.files.mediaFile[0].path, e => e && console.error("Cleanup error mediaFile:",e));
-        if (req.files && req.files.posterFile) fs.unlink(req.files.posterFile[0].path, e => e && console.error("Cleanup error posterFile:",e));
+        if (req.files && req.files.mediaFile) fs.unlink(req.files.mediaFile[0].path, e => e && console.error("Cleanup error mediaFile:", e));
+        if (req.files && req.files.posterFile) fs.unlink(req.files.posterFile[0].path, e => e && console.error("Cleanup error posterFile:", e));
         return res.status(400).json({ success: false, message: 'Invalid media type specified.' });
       }
 
@@ -962,7 +995,7 @@ const updateMediaItem = (req, res) => {
         if (oldPosterSrcPath && newPosterSrc !== oldPosterSrcPath) {
           deleteFileByUrlPath(oldPosterSrcPath);
         }
-        
+
         const updatedMediaItem = {
           id: parseInt(id), title, date, category, type, description: description || null,
           src: newimageUrl, poster: newPosterSrc, youtubeUrl: newOriginalYoutubeUrl
@@ -1031,9 +1064,9 @@ const postComment = async (req, res) => {
 
   // Validate required fields
   if (!newsItemId || !name || !email || !text) {
-    return res.status(400).json({ 
-      success: false, 
-      error: "Missing required fields: newsItemId, name, email, and text are required." 
+    return res.status(400).json({
+      success: false,
+      error: "Missing required fields: newsItemId, name, email, and text are required."
     });
   }
 
@@ -1073,10 +1106,10 @@ const postComment = async (req, res) => {
     };
 
     console.log(`Comment added for news item ${newsItemId}, Comment ID: ${insertedCommentId}`);
-    res.status(201).json({ 
-      success: true, 
-      message: "Comment added successfully. It will be visible after admin approval.", 
-      comment: newComment 
+    res.status(201).json({
+      success: true,
+      message: "Comment added successfully. It will be visible after admin approval.",
+      comment: newComment
     });
   });
 };
@@ -1247,7 +1280,7 @@ module.exports = {
   deleteComment,
   postComment,
   getMediaItems,
- updateMediaItem,
+  updateMediaItem,
   deleteMediaItem,
   addMediaItem,
   uploadProfilePicture,
@@ -1257,7 +1290,7 @@ module.exports = {
   postEvent,
   getEvents,
   editNews,
-  editEvent, 
+  editEvent,
   deleteNews,
   deleteEvent
 };

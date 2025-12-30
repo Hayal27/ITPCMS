@@ -1,12 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-slate-500 dark:text-gray-400 bg-white dark:bg-slate-950 transition-colors duration-300;
+  }
+
+  /* Global Dark Mode Overrides for Bootstrap Components */
+  html[data-bs-theme="dark"] body,
+  .dark body {
+    @apply bg-slate-950 text-gray-400 !important;
+  }
+
+  .dark .card,
+  html[data-bs-theme="dark"] .card {
+    @apply bg-slate-900 border-gray-800 text-gray-100 !important;
+  }
+
+  .dark .card-header,
+  html[data-bs-theme="dark"] .card-header {
+    @apply bg-slate-800/50 border-gray-800 text-white !important;
+  }
+
+  .dark .text-gray-800,
+  html[data-bs-theme="dark"] .text-gray-800 {
+    @apply text-white !important;
+  }
+
+  .dark .text-gray-500 {
+    @apply text-gray-400 !important;
+  }
+
+  .dark .bg-white,
+  html[data-bs-theme="dark"] .bg-white {
+    @apply bg-slate-900 !important;
+  }
+
+  .dark .bg-gray-50,
+  html[data-bs-theme="dark"] .bg-gray-50 {
+    @apply bg-slate-950 !important;
+  }
+
+  .dark .border {
+    @apply border-gray-800 !important;
+  }
+
+  .dark .shadow-sm,
+  .dark .shadow {
+    @apply shadow-none !important;
+  }
+}
 
 /* Custom Layout Styles */
+
 
 /* Ensure the main sidebar toggle button in the TopNavbar is always visible */
 /* Target using a combination of classes specific to the button */
 .navbar-top button.navbar-toggler.navbar-toggler-humburger-icon {
-  display: inline-flex !important; /* Use inline-flex or block, important to override */
-  visibility: visible !important; /* Ensure it's not hidden by visibility */
-  opacity: 1 !important; /* Ensure it's not hidden by opacity */
+  display: inline-flex !important;
+  /* Use inline-flex or block, important to override */
+  visibility: visible !important;
+  /* Ensure it's not hidden by visibility */
+  opacity: 1 !important;
+  /* Ensure it's not hidden by opacity */
   /* Add any necessary positioning adjustments if needed */
   /* e.g., z-index: 1050; */
 }
@@ -16,46 +73,57 @@
 .content-wrapper {
   transition: margin-left 0.3s ease-in-out;
   /* Adjust margin based on your sidebar width */
-  margin-left: 250px; /* Example sidebar width */
-  padding-top: 60px; /* Example: Add padding if TopNavbar is fixed */
-  flex-grow: 1; /* Ensure it takes remaining space */
+  margin-left: 250px;
+  /* Example sidebar width */
+  padding-top: 60px;
+  /* Example: Add padding if TopNavbar is fixed */
+  flex-grow: 1;
+  /* Ensure it takes remaining space */
 }
 
 .sidebar-closed .content-wrapper {
-  margin-left: 0; /* Or a smaller margin for a mini-sidebar */
+  margin-left: 0;
+  /* Or a smaller margin for a mini-sidebar */
 }
 
 /* Ensure vertical navbar itself transitions smoothly if needed */
 .navbar-vertical {
-   transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
-   /* Add other transition properties as needed */
-   position: fixed; /* Or absolute, depending on layout */
-   left: 0;
-   top: 0; /* Or below TopNavbar if TopNavbar isn't fixed */
-   height: 100vh;
-   z-index: 1030; /* Ensure it's above content */
-   width: 250px; /* Example width */
+  transition: width 0.3s ease-in-out, transform 0.3s ease-in-out;
+  /* Add other transition properties as needed */
+  position: fixed;
+  /* Or absolute, depending on layout */
+  left: 0;
+  top: 0;
+  /* Or below TopNavbar if TopNavbar isn't fixed */
+  height: 100vh;
+  z-index: 1030;
+  /* Ensure it's above content */
+  width: 250px;
+  /* Example width */
 }
 
 /* Style for when navbar is collapsed */
 .navbar-vertical:not(.show) {
-   width: 0;
-   overflow: hidden;
-   transform: translateX(-100%); /* Slide out */
+  width: 0;
+  overflow: hidden;
+  transform: translateX(-100%);
+  /* Slide out */
 }
 
 /* Adjust main content area */
 .content {
-    padding: 1.5rem; /* Example padding */
-    width: 100%;
+  padding: 1.5rem;
+  /* Example padding */
+  width: 100%;
 }
 
 .footer-1 {
   padding-right: 170%;
-  margin-left:50% ;
-} 
-.footer-2{
+  margin-left: 50%;
+}
+
+.footer-2 {
   position: fixed;
-  top:84%;
+  top: 84%;
   padding-left: 70%;
 }

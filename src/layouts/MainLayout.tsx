@@ -1,60 +1,81 @@
 import React, { useState, useEffect } from 'react';
 import TopNavbar from '../components/nav/TopNavbar';
 import VerticalNavbar from '../components/nav/VerticalNavbar';
-// Import necessary CSS for layout if needed, e.g., Bootstrap or custom styles
-// import './Layout.css'; // Example: if you have custom layout CSS
 
 interface MainLayoutProps {
-  children: React.ReactNode; // To render page content
+  children: React.ReactNode;
 }
 
 const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  // State to control the vertical navbar's visibility
-  // Initialize based on screen size or preference if needed
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Default to open
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Function to toggle the sidebar state
+  // Handle responsive sidebar behavior
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 1024) { // lb breakpoint
+        setIsMobile(true);
+        if (isSidebarOpen) setIsSidebarOpen(false);
+      } else {
+        setIsMobile(false);
+        if (!isSidebarOpen) setIsSidebarOpen(true);
+      }
+    };
+
+    // Initial check
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const toggleSidebar = () => {
-    setIsSidebarOpen(prevState => !prevState);
+    setIsSidebarOpen(!isSidebarOpen);
   };
 
-  // Optional: Add effect to close sidebar on smaller screens initially
-  // useEffect(() => {
-  //   const checkScreenSize = () => {
-  //     if (window.innerWidth < 1200) { // Example breakpoint (Bootstrap's xl)
-  //       setIsSidebarOpen(false);
-  //     } else {
-  //       setIsSidebarOpen(true);
-  //     }
-  //   };
-  //   checkScreenSize();
-  //   window.addEventListener('resize', checkScreenSize);
-  //   return () => window.removeEventListener('resize', checkScreenSize);
-  // }, []);
-
-  // Add a class to the main container when sidebar is closed for potential styling adjustments
-  const mainContainerClass = `container-fluid ${!isSidebarOpen ? 'sidebar-closed' : 'sidebar-open'}`; // Use your preferred class names
-
   return (
-    // Ensure the main container structure matches your theme's requirements
-    // This often involves a wrapper div around VerticalNavbar and the main content area
-    <div className={mainContainerClass}>
-       {/* Pass the toggle function to TopNavbar */}
-      <TopNavbar toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100 overflow-hidden">
+      {/* Sidebar Area */}
+      {/* Mobile Overlay */}
+      {isMobile && isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
 
-      <div className="content-wrapper"> {/* Example wrapper */}
-        {/* Pass the state to VerticalNavbar */}
-        <VerticalNavbar isSidebarOpen={isSidebarOpen} />
-
-        {/* Main Content Area */}
-        <div className="content">
-          {/* Render the specific page content here */}
-          {children}
+      {/* Sidebar Component */}
+      <aside
+        className={`
+          flex-shrink-0 z-30 transition-all duration-300 ease-in-out
+          bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
+          ${isMobile
+            ? (isSidebarOpen ? 'fixed inset-y-0 left-0 shadow-xl w-64' : 'fixed inset-y-0 left-0 w-0 -translate-x-full')
+            : (isSidebarOpen ? 'w-64' : 'w-20')
+          }
+        `}
+      >
+        <div className="h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+          <VerticalNavbar isSidebarOpen={isSidebarOpen} />
         </div>
-      </div>
+      </aside>
 
-      {/* Optional Footer */}
-      {/* <Footer /> */}
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 h-full min-w-0 overflow-hidden relative">
+        {/* Top Navbar */}
+        <header className="flex-shrink-0 sticky top-0 z-10 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 h-16">
+          <TopNavbar toggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
+        </header>
+
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 scroll-smooth relative">
+          <div className="mx-auto max-w-7xl animate-fade-in">
+            {children}
+          </div>
+
+        </main>
+      </div>
     </div>
   );
 };

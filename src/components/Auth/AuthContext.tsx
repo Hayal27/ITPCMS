@@ -4,7 +4,7 @@ import Axios from 'axios';
 // --- Configuration ---
 // Access environment variables using import.meta.env for Vite
 // Ensure VITE_API_URL is defined in your .env file
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api-cms.startechaigroup.com";
 // --- Interfaces ---
 interface User {
     user_id: string | number;
@@ -68,9 +68,9 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         case 'INITIALIZE':
             // Set Axios default header only if token is valid during initialization
             if (action.payload.token) {
-                 Axios.defaults.headers.common['Authorization'] = `Bearer ${action.payload.token}`;
+                Axios.defaults.headers.common['Authorization'] = `Bearer ${action.payload.token}`;
             } else {
-                 delete Axios.defaults.headers.common['Authorization'];
+                delete Axios.defaults.headers.common['Authorization'];
             }
             return {
                 ...state,
@@ -107,10 +107,10 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
                 isLoading: false,
             };
         case 'SET_LOADING':
-             return {
-                 ...state,
-                 isLoading: action.payload,
-             };
+            return {
+                ...state,
+                isLoading: action.payload,
+            };
         default:
             // Ensure exhaustive check or handle unknown action types
             const exhaustiveCheck: never = action;
@@ -146,7 +146,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } catch (error: any) {
             console.error("Login Request Failed:", error);
             const message = error.response?.data?.message || error.message || "Login failed due to a network or server error.";
-             dispatch({ type: 'SET_LOADING', payload: false });
+            dispatch({ type: 'SET_LOADING', payload: false });
             return { success: false, message };
         }
         // No finally block needed as SET_LOADING(false) is handled in error cases and LOGIN action
@@ -181,8 +181,8 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                     dispatch({ type: 'LOGOUT' }); // LOGOUT action already sets isLoading to false
                 }
             } else {
-                 // No token/user found, ensure state reflects this and loading is false
-                 dispatch({ type: 'INITIALIZE', payload: { user: null, token: null } });
+                // No token/user found, ensure state reflects this and loading is false
+                dispatch({ type: 'INITIALIZE', payload: { user: null, token: null } });
             }
         };
 

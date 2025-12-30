@@ -21,6 +21,9 @@ if (JSON.parse(localStorage.getItem('isNavbarVerticalCollapsed'))) {
 }
 if (localStorage.getItem('theme') === 'dark') {
   document.documentElement.setAttribute('data-bs-theme', 'dark');
+  document.documentElement.classList.add('dark');
 } else if (localStorage.getItem('theme') === 'auto') {
-  document.documentElement.setAttribute('data-bs-theme', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-bs-theme', prefersDark ? 'dark' : 'light');
+  if (prefersDark) document.documentElement.classList.add('dark');
 }

@@ -7,7 +7,7 @@ import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 import './MediaGalleryAdmin.css'; // Assuming this file exists
 
 // --- START: API service section ---
-export const BACKEND_URL = "http://localhost:5001";
+export const BACKEND_URL = "https://api-cms.startechaigroup.com";
 
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
   try {
@@ -78,7 +78,7 @@ interface GetMediaResponse extends BaseApiResponse {
   mediaItems: MediaItem[];
 }
 
-interface MutateMediaResponse extends BaseApiResponse, MediaItem {}
+interface MutateMediaResponse extends BaseApiResponse, MediaItem { }
 
 const getYoutubeEmbedUrl = (url: string): string | null => {
   if (!url) return null;
@@ -103,7 +103,7 @@ const buildMediaFormData = (mediaData: MediaFormData | Partial<MediaFormData>): 
   const formData = new FormData();
   (Object.keys(mediaData) as Array<keyof typeof mediaData>).forEach(key => {
     if (key === 'mediaFile' || key === 'posterFile' || key === 'src') return;
-    
+
     const value = mediaData[key];
     if (value !== undefined && value !== null) {
       formData.append(key, String(value));
@@ -166,7 +166,7 @@ export const quillModules = {
   toolbar: [
     [{ 'header': [1, 2, 3, false] }],
     ['bold', 'italic', 'underline', 'strike'],
-    [{'list': 'ordered'}, {'list': 'bullet'}],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
     ['link', 'image', 'video'],
     [{ 'align': [] }],
     ['clean']
@@ -202,11 +202,11 @@ const ManageGallery: React.FC = () => {
   const [formData, setFormData] = useState<MediaFormData>(initialMediaFormData);
   const [mediaFilePreview, setMediaFilePreview] = useState<string | null>(null);
   const [posterFilePreview, setPosterFilePreview] = useState<string | null>(null);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const [isCardVisible, setIsCardVisible] = useState(false);
 
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -223,11 +223,11 @@ const ManageGallery: React.FC = () => {
     setListError(null);
     try {
       const items = await getMediaItems();
-      setMediaItems(items); 
+      setMediaItems(items);
     } catch (err) {
       setListError(err instanceof Error ? err.message : 'Failed to fetch media items.');
       console.error('Error fetching media items:', err);
-      setMediaItems([]); 
+      setMediaItems([]);
     } finally {
       setIsLoadingList(false);
     }
@@ -251,21 +251,21 @@ const ManageGallery: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => {
       const newState = { ...prev, [name]: value };
-      if (name === 'type' && !editingItem) { 
+      if (name === 'type' && !editingItem) {
         if (value === 'image') {
           newState.youtubeUrl = '';
         } else if (value === 'video') {
           newState.mediaFile = undefined;
           setMediaFilePreview(null);
           const mediaInput = document.getElementById('mediaFile') as HTMLInputElement | null;
-          if (mediaInput) mediaInput.value = ""; 
+          if (mediaInput) mediaInput.value = "";
         }
       }
       return newState;
     });
 
     if (name === 'type' && value === 'image' && !editingItem) {
-      setFormData(prev => ({ ...prev, posterFile: undefined })); 
+      setFormData(prev => ({ ...prev, posterFile: undefined }));
       setPosterFilePreview(null);
       const posterInput = document.getElementById('mediaPosterFile') as HTMLInputElement | null;
       if (posterInput) posterInput.value = "";
@@ -305,7 +305,7 @@ const ManageGallery: React.FC = () => {
     setPosterFilePreview(null);
     setEditingItem(null);
     setError(null);
-    setSuccess(null); 
+    setSuccess(null);
     const mediaInput = document.getElementById('mediaFile') as HTMLInputElement | null;
     if (mediaInput) mediaInput.value = "";
     const posterInput = document.getElementById('mediaPosterFile') as HTMLInputElement | null;
@@ -367,7 +367,7 @@ const ManageGallery: React.FC = () => {
       }
       setSuccess(resultMessage);
       resetForm();
-      fetchMedia(); 
+      fetchMedia();
     } catch (err) {
       setError(err instanceof Error ? err.message : `Failed to ${editingItem ? 'update' : 'add'} media item.`);
       console.error(`Error ${editingItem ? 'updating' : 'adding'} media item:`, err);
@@ -375,7 +375,7 @@ const ManageGallery: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   const handleEdit = (item: MediaItem) => {
     setEditingItem(item);
     setFormData({
@@ -384,11 +384,11 @@ const ManageGallery: React.FC = () => {
       category: item.category,
       type: item.type,
       description: item.description || '',
-      youtubeUrl: item.type === 'video' ? item.youtubeUrl || '' : '', 
-      mediaFile: undefined, 
+      youtubeUrl: item.type === 'video' ? item.youtubeUrl || '' : '',
+      mediaFile: undefined,
       posterFile: undefined,
     });
-    setMediaFilePreview(null); 
+    setMediaFilePreview(null);
     setPosterFilePreview(null);
     setError(null);
     setSuccess(null);
@@ -397,7 +397,7 @@ const ManageGallery: React.FC = () => {
 
   const handleDelete = async (id: number | string) => {
     if (window.confirm('Are you sure you want to delete this media item?')) {
-      setLoading(true); 
+      setLoading(true);
       setError(null);
       setSuccess(null);
       try {
@@ -405,7 +405,7 @@ const ManageGallery: React.FC = () => {
         setSuccess('Media item deleted successfully!');
         fetchMedia();
         if (editingItem && editingItem.id === id) {
-          resetForm(); 
+          resetForm();
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to delete media item.');
@@ -476,7 +476,7 @@ const ManageGallery: React.FC = () => {
           <Form.Group as={Row} className="mb-3" controlId="mediaDescription">
             <Form.Label column sm={3}>Description</Form.Label>
             <Col sm={9}>
-              <ReactQuill theme="snow" value={formData.description} onChange={handleDescriptionChange} modules={quillModules} formats={quillFormats} style={{ minHeight: '150px', marginBottom: '40px' }}/>
+              <ReactQuill theme="snow" value={formData.description} onChange={handleDescriptionChange} modules={quillModules} formats={quillFormats} style={{ minHeight: '150px', marginBottom: '40px' }} />
             </Col>
           </Form.Group>
 
@@ -507,14 +507,14 @@ const ManageGallery: React.FC = () => {
               {youtubeEmbedPreviewUrl && (
                 <Row className="mb-3"><Col sm={{ span: 9, offset: 3 }}><Card body className="text-center" style={{ width: 'fit-content' }}><Card.Text>Video Preview:</Card.Text><iframe width="200" height="113" src={youtubeEmbedPreviewUrl} title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe></Card></Col></Row>
               )}
-               {editingItem && editingItem.type === 'video' && editingItem.src && !youtubeEmbedPreviewUrl && (
-                  <Row className="mb-3">
-                    <Col sm={{ span: 9, offset: 3 }}>
-                      <small className="text-muted d-block mb-1">Current Video (enter new URL to change):</small>
-                      <iframe width="200" height="113" src={editingItem.src} title="Current YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
-                    </Col>
-                  </Row>
-                )}
+              {editingItem && editingItem.type === 'video' && editingItem.src && !youtubeEmbedPreviewUrl && (
+                <Row className="mb-3">
+                  <Col sm={{ span: 9, offset: 3 }}>
+                    <small className="text-muted d-block mb-1">Current Video (enter new URL to change):</small>
+                    <iframe width="200" height="113" src={editingItem.src} title="Current YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen></iframe>
+                  </Col>
+                </Row>
+              )}
             </>
           )}
 
@@ -523,10 +523,10 @@ const ManageGallery: React.FC = () => {
             <Col sm={9}>
               <Form.Control type="file" accept="image/*" onChange={(e: ChangeEvent<HTMLInputElement>) => handleFileChange(e, 'posterFile')} />
               {editingItem && editingItem.poster && !posterFilePreview && (
-                 <div className="mt-2">
-                    <small className="text-muted d-block mb-1">Current Poster (select new file to change):</small>
-                    <img src={getFullImageUrl(BACKEND_URL, editingItem.poster)} alt="Current poster" style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '4px', border: '1px solid #dee2e6' }} />
-                  </div>
+                <div className="mt-2">
+                  <small className="text-muted d-block mb-1">Current Poster (select new file to change):</small>
+                  <img src={getFullImageUrl(BACKEND_URL, editingItem.poster)} alt="Current poster" style={{ maxWidth: '200px', maxHeight: '150px', borderRadius: '4px', border: '1px solid #dee2e6' }} />
+                </div>
               )}
             </Col>
           </Form.Group>
@@ -631,11 +631,11 @@ const ManageGallery: React.FC = () => {
             <h2 className="mb-4 text-center display-6">Manage Media Gallery</h2>
             {error && <Alert variant="danger" onClose={() => setError(null)} dismissible className="shadow-sm">{error}</Alert>}
             {success && <Alert variant="success" onClose={() => setSuccess(null)} dismissible className="shadow-sm">{success}</Alert>}
-            
+
             {renderMediaForm()}
-            
+
             <hr className="my-5" />
-            
+
             {renderMediaList()}
           </Col>
         </Row>
