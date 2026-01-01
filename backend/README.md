@@ -59,6 +59,13 @@ A robust and secure Node.js backend for the Ethiopian IT Park Content Management
    npm start
   ```
 
+## 🏥 Testing & Monitoring
+
+For external tools (Lighthouse, OWASP ZAP, etc.) to verify connectivity:
+- **Health Check**: `GET /health`
+- **API Status**: `GET /`
+- **Robots Policy**: `GET /robots.txt`
+
 ## 📂 Project Structure
 
 - `/controllers`: Request handling and business logic.

@@ -4,6 +4,8 @@ const session = require("express-session");
 const path = require("path");
 const http = require("http");
 const { ExpressPeerServer } = require("peer");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 // Standardized DB connection
@@ -62,10 +64,43 @@ app.use(
   })
 );
 
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Allow external resources if needed
+}));
+
+// Rate limiting for production protection
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1000, // Limit each IP to 1000 requests per windowMs
+  message: { message: "Too many requests from this IP, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(loggingMiddleware);
+
+// --- Health Check & Discovery Routes ---
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "ITPCMS API Service is running",
+    version: "1.0.0",
+    environment: process.env.NODE_ENV || "development"
+  });
+});
+
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "UP", timestamp: new Date() });
+});
+
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain");
+  res.send("User-agent: *\nAllow: /");
+});
 
 // Using Routes
 app.use("/api", userRoutes);
