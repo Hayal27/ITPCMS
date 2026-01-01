@@ -10,7 +10,7 @@ const verifyToken = (req, res, next) => {
   }
 
   // Verify token and extract payload
-  jwt.verify(token, "hayaltamrat@27", (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET || 'cms_default_jwt_secret_change_me', (err, decoded) => {
     if (err) {
       return res.status(401).json({ success: false, message: "Failed to authenticate token" });
     }

@@ -30,18 +30,18 @@ node run-migration.js
 
 ## What This Migration Does
 
-✅ Creates the `subscribers` table with:
+[x] Creates the `subscribers` table with:
 - `id` - Auto-incrementing primary key
 - `email` - Unique email address (varchar 255)
 - `status` - Subscription status (active/unsubscribed)
 - `subscribed_at` - Timestamp when user subscribed
 - `unsubscribed_at` - Timestamp when user unsubscribed (nullable)
 
-✅ Adds proper indexes:
+[x] Adds proper indexes:
 - Primary key on `id`
 - Unique constraint on `email`
 
-✅ Uses `CREATE TABLE IF NOT EXISTS` to prevent errors if table already exists
+[x] Uses `CREATE TABLE IF NOT EXISTS` to prevent errors if table already exists
 
 ## Verify Migration Success
 
@@ -70,10 +70,10 @@ DROP TABLE IF EXISTS subscribers;
 
 After successful migration:
 
-1. ✅ Start the backend server: `node server.js`
-2. ✅ Test subscription via the website footer
-3. ✅ Check the admin dashboard to view subscribers
-4. ✅ Configure email settings in `.env` file
+1. [x] Start the backend server: `node server.js`
+2. [x] Test subscription via the website footer
+3. [x] Check the admin dashboard to view subscribers
+4. [x] Configure email settings in `.env` file
 
 ## Troubleshooting
 

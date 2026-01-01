@@ -3,7 +3,7 @@ const con = require("../models/db");
 
 const getdepartment = async (req, res) => {
   try {
-    const sql = "SELECT name FROM departmens";
+    const sql = "SELECT name FROM departments";
     con.query(sql, (err, results) => {
       if (err) {
         console.error("Database query error:", err);
@@ -21,7 +21,7 @@ const getdepartment = async (req, res) => {
 const getUserRoles = async (req, res) => {
   try {
     // Assuming that the current user's ID is available in req.user_id from verifyToken middleware
-    const user_id = req.user_id;
+    const user_id = req.user?.user_id;
     if (!user_id) {
       return res.status(400).json({ error: "User ID not provided" });
     }

@@ -13,7 +13,7 @@ const query = (sql, args) => {
     });
 };
 
-console.log("✅ LOADED UPDATED SUBSCRIPTION CONTROLLER");
+console.log("LOADED UPDATED SUBSCRIPTION CONTROLLER");
 
 // Create email transporter
 const createTransporter = () => {
@@ -140,7 +140,7 @@ const sendWelcomeEmail = async (email, isReturning = false) => {
             </div>
             <div class="footer">
               <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
-              <p>© ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
+              <p>(c) ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
             </div>
           </div>
         </body>
@@ -208,7 +208,7 @@ exports.notifySubscribers = async (type, item) => {
               </div>
               <div class="footer">
                 <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
-                <p>© ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
+                <p>(c) ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
                 <p><a href="${process.env.FRONTEND_URL || 'https://api-cms.startechaigroup.com3002'}/unsubscribe?email=${subscriber.email}" class="unsubscribe">Unsubscribe</a></p>
               </div>
             </div>

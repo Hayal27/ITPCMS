@@ -2,16 +2,18 @@ const express = require('express');
 const router = express.Router();
 const landController = require('../controllers/landController');
 
+const verifyToken = require('../middleware/verifyToken');
+
 // Land Zone Routes
 router.get('/zones', landController.getLandZones);
-router.post('/zones', landController.createLandZone);
-router.put('/zones/:id', landController.updateLandZone);
-router.delete('/zones/:id', landController.deleteLandZone);
+router.post('/zones', verifyToken, landController.createLandZone);
+router.put('/zones/:id', verifyToken, landController.updateLandZone);
+router.delete('/zones/:id', verifyToken, landController.deleteLandZone);
 
 // Leased Land Routes
 router.get('/', landController.getLeasedLands);
-router.post('/', landController.createLeasedLand);
-router.put('/:id', landController.updateLeasedLand);
-router.delete('/:id', landController.deleteLeasedLand);
+router.post('/', verifyToken, landController.createLeasedLand);
+router.put('/:id', verifyToken, landController.updateLeasedLand);
+router.delete('/:id', verifyToken, landController.deleteLeasedLand);
 
 module.exports = router;

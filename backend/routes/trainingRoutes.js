@@ -21,10 +21,12 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const verifyToken = require('../middleware/verifyToken');
+
 router.get('/', trainingController.getAllTrainings);
 router.get('/:id', trainingController.getTrainingById);
-router.post('/', upload.single('image'), trainingController.createTraining);
-router.put('/:id', upload.single('image'), trainingController.updateTraining);
-router.delete('/:id', trainingController.deleteTraining);
+router.post('/', verifyToken, upload.single('image'), trainingController.createTraining);
+router.put('/:id', verifyToken, upload.single('image'), trainingController.updateTraining);
+router.delete('/:id', verifyToken, trainingController.deleteTraining);
 
 module.exports = router;

@@ -36,16 +36,18 @@ const upload = multer({
     }
 });
 
+const verifyToken = require('../middleware/verifyToken');
+
 // Partners routes
 router.get('/partners', partnersInvestorsController.getPartners);
-router.post('/partners', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createPartner);
-router.put('/partners/:id', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updatePartner);
-router.delete('/partners/:id', partnersInvestorsController.deletePartner);
+router.post('/partners', verifyToken, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createPartner);
+router.put('/partners/:id', verifyToken, upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updatePartner);
+router.delete('/partners/:id', verifyToken, partnersInvestorsController.deletePartner);
 
 // Investors routes
 router.get('/investors', partnersInvestorsController.getInvestors);
-router.post('/investors', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createInvestor);
-router.put('/investors/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updateInvestor);
-router.delete('/investors/:id', partnersInvestorsController.deleteInvestor);
+router.post('/investors', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createInvestor);
+router.put('/investors/:id', verifyToken, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updateInvestor);
+router.delete('/investors/:id', verifyToken, partnersInvestorsController.deleteInvestor);
 
 module.exports = router;

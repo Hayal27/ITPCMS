@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-console.log('📬 Career Mailer Config Check:', {
+console.log('Career Mailer Config Check:', {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     userPresent: !!process.env.EMAIL_USER,
     passPresent: !!process.env.EMAIL_PASS
@@ -61,7 +61,7 @@ const sendApplicationStatusUpdate = async (to, fullName, jobTitle, status, track
                 <div style="margin-top: 16px;">
                     <a href="${(appointmentInfo.lat && appointmentInfo.lng) ? `https://www.google.com/maps/search/?api=1&query=${appointmentInfo.lat},${appointmentInfo.lng}` : appointmentInfo.mapLink}" 
                        style="display: inline-block; padding: 10px 16px; background-color: #0369A1; color: white; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 13px;">
-                        📍 View Location on Google Maps
+                        View Location on Google Maps
                     </a>
                 </div>
                 ` : ''}
@@ -105,10 +105,10 @@ const sendApplicationStatusUpdate = async (to, fullName, jobTitle, status, track
 
     try {
         await transporter.sendMail(mailOptions);
-        console.log(`✉️ Email sent to ${to} for status ${status}`);
+        console.log(`Email sent to ${to} for status ${status}`);
         return true;
     } catch (error) {
-        console.error('❌ Error sending email:', error);
+        console.error('Error sending email:', error);
         return false;
     }
 };

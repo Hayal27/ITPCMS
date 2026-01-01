@@ -37,6 +37,6 @@ INSERT INTO incubation_success_stories (image_url, title, description, stats, li
 '[{"number": "Global", "label": "Presence"}, {"number": "20+ Years", "label": "Experience"}]', 
 'https://www.kagool.com/about-us'),
 ('https://res.cloudinary.com/yesuf/image/upload/v1747295683/unin_duld3y.jpg', 'UNIDO Ethiopia', 
-'["The United Nations Industrial Development Organization (UNIDO) drives inclusive and sustainable industrial development.", "Active in Ethiopia’s IT Park, supporting innovation and industrial growth.", "Learn more: unido.org/about-us/who-we-are"]', 
+'["The United Nations Industrial Development Organization (UNIDO) drives inclusive and sustainable industrial development.", "Active in Ethiopia\'s IT Park, supporting innovation and industrial growth.", "Learn more: unido.org/about-us/who-we-are"]', 
 '[{"number": "170+", "label": "Member States"}, {"number": "1966", "label": "Established"}]', 
 'https://www.unido.org/about-us/who-we-are');

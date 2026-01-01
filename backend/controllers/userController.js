@@ -1,20 +1,19 @@
 // controllers/userController.js
 
-const con = require("../models/db"); // Assumes you have a db.js file that exports the database connection
-const bcrypt = require('bcrypt');
 const util = require('util');
-
-
+const fs = require("fs");
+const path = require("path");
+const con = require("../models/db");
 
 const updateUser = async (req, res) => {
   const { user_id } = req.params;
   // Expecting role_id (not role_name) since the users table only has role_id field.
   const { fname, lname, user_name, phone, department_id, role_id } = req.body;
-  
+
   try {
     // Promisify the query method for async/await usage
     const query = util.promisify(con.query).bind(con);
-    
+
     // Retrieve the employee_id from the users table
     const usersData = await query("SELECT employee_id FROM users WHERE user_id = ?", [user_id]);
     if (!usersData || usersData.length === 0) {
@@ -22,7 +21,7 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     const employee_id = usersData[0].employee_id;
-    
+
     // If an employee_id exists, update the employees table for employee details
     if (employee_id) {
       await query(
@@ -31,14 +30,14 @@ const updateUser = async (req, res) => {
       );
       console.log("Employee details updated for employee_id:", employee_id);
     }
-    
+
     // Update the users table with account details (user_name and role_id)
     await query(
       "UPDATE users SET user_name = ?, role_id = ? WHERE user_id = ?",
       [user_name, role_id, user_id]
     );
     console.log("User account updated for user_id:", user_id);
-    
+
     res.status(200).json({ message: "User updated successfully" });
   } catch (error) {
     console.error("Error updating user:", error);
@@ -46,12 +45,9 @@ const updateUser = async (req, res) => {
   }
 };
 
-
-
-
 // Get all roles
 const getAllRoles = (req, res) => {
-  con.query("SELECT * FROM role", (err, results) => {
+  con.query("SELECT * FROM roles", (err, results) => {
     if (err) {
       console.error("Error retrieving roles:", err);
       return res.status(500).json({ message: "Error retrieving roles", error: err });
@@ -63,7 +59,7 @@ const getAllRoles = (req, res) => {
 
 // Get all departments
 const getDepartment = (req, res) => {
-  con.query("SELECT * FROM department", (err, results) => {
+  con.query("SELECT * FROM departments", (err, results) => {
     if (err) {
       console.error("Error retrieving department:", err);
       return res.status(500).json({ message: "Error retrieving department", error: err });
@@ -74,8 +70,6 @@ const getDepartment = (req, res) => {
 };
 
 // Get all users (including employee details if available)
-// We use LEFT JOIN with employees table so that employee fields (fname, lname, phone) override users fields
-
 const getAllUsers = (req, res) => {
   const query = `
     SELECT u.*, e.*
@@ -91,7 +85,6 @@ const getAllUsers = (req, res) => {
     res.json(results);
   });
 };
-
 
 // Change user status active (1) or inactive (0)
 const changeUserStatus = (req, res) => {
@@ -119,32 +112,52 @@ const changeUserStatus = (req, res) => {
   });
 };
 
-
-
 // Delete user - using correct table name (users)
 const deleteUser = (req, res) => {
   const { user_id } = req.params;
 
-  con.query("DELETE FROM users WHERE user_id = ?", [user_id], (err, result) => {
-    if (err) {
-      console.error("Error deleting user:", err);
-      return res.status(500).json({ message: "Error deleting user", error: err });
+  // First fetch the user to get the avatar_url
+  con.query("SELECT avatar_url FROM users WHERE user_id = ?", [user_id], (fetchErr, results) => {
+    if (fetchErr) {
+      console.error("Error fetching user for deletion:", fetchErr);
+      return res.status(500).json({ message: "Error fetching user", error: fetchErr });
     }
 
-    if (result.affectedRows === 0) {
-      console.error("User not found for deletion, user_id:", user_id);
-      return res.status(404).json({ message: "User not found" });
-    }
+    const avatarUrl = results.length > 0 ? results[0].avatar_url : null;
 
-    console.log("User deleted successfully, user_id:", user_id);
-    res.json({ message: "User deleted successfully" });
+    con.query("DELETE FROM users WHERE user_id = ?", [user_id], (err, result) => {
+      if (err) {
+        console.error("Error deleting user:", err);
+        return res.status(500).json({ message: "Error deleting user", error: err });
+      }
+
+      if (result.affectedRows === 0) {
+        console.error("User not found for deletion, user_id:", user_id);
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // If deletion from DB was successful, delete the avatar file
+      if (avatarUrl) {
+        const filePath = path.join(__dirname, "..", avatarUrl);
+        fs.unlink(filePath, (unlinkErr) => {
+          if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+            console.error(`Error deleting avatar file ${filePath}:`, unlinkErr);
+          } else {
+            console.log(`Deleted avatar file: ${filePath}`);
+          }
+        });
+      }
+
+      console.log("User deleted successfully, user_id:", user_id);
+      res.json({ message: "User deleted successfully" });
+    });
   });
 };
 
-// Get user role for current user (using req.user_id from middleware)
+// Get user role for current user (using req.user?.user_id from middleware)
 const getUserRoles = (req, res) => {
   try {
-    const user_id = req.user_id;
+    const user_id = req.user?.user_id;
     if (!user_id) {
       console.error("User ID not provided in request.");
       return res.status(400).json({ error: "User ID not provided" });
@@ -173,19 +186,12 @@ const getUserRoles = (req, res) => {
   }
 };
 
-
-
-
 module.exports = {
- 
   getUserRoles,
- 
   getAllRoles,
   getDepartment,
-  getAllUsers, // Updated function name here
+  getAllUsers,
   changeUserStatus,
   updateUser,
-  deleteUser,
-  changeUserStatus,
-  updateUser
+  deleteUser
 };

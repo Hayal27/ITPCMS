@@ -13,9 +13,9 @@ async function createBroadcastRoom(eventId) {
         const roomName = `itpc-event-${eventId}-${Date.now()}`;
 
         if (!DAILY_API_KEY) {
-            console.error('❌ CRITICAL: DAILY_API_KEY NOT FOUND IN ENVIRONMENT!');
-            console.warn('⚠️ Submitting a dummy room URL. This WILL fail on join!');
-            console.warn('👉 Please add DAILY_API_KEY to your backend/.env file.');
+            console.error('CRITICAL: DAILY_API_KEY NOT FOUND IN ENVIRONMENT!');
+            console.warn('Submitting a dummy room URL. This WILL fail on join!');
+            console.warn('Please add DAILY_API_KEY to your backend/.env file.');
             // This is a fallback that might not work unless the user has manually created this room/domain
             return {
                 url: `https://itpchub.daily.co/${roomName}`,
@@ -23,7 +23,7 @@ async function createBroadcastRoom(eventId) {
             };
         }
 
-        console.log('🚀 Creating Daily room via API...');
+        console.log('Creating Daily room via API...');
 
         // Production mode: Create room via API
         const response = await axios.post(
@@ -49,14 +49,14 @@ async function createBroadcastRoom(eventId) {
             }
         );
 
-        console.log('✅ Daily room created successfully:', response.data.url);
+        console.log('Daily room created successfully:', response.data.url);
         return {
             url: response.data.url,
             roomName: response.data.name
         };
     } catch (error) {
         const errorData = error.response?.data;
-        console.error('❌ Failed to create Daily room:', errorData || error.message);
+        console.error('Failed to create Daily room:', errorData || error.message);
 
         // If room already exists or other non-fatal error, try to handle or rethrow
         throw new Error(`Daily API Error: ${errorData?.info || error.message}`);
@@ -79,7 +79,7 @@ async function deleteRoom(roomName) {
                 }
             }
         );
-        console.log(`🗑️ Deleted Daily room: ${roomName}`);
+        console.log(`Deleted Daily room: ${roomName}`);
     } catch (error) {
         console.error('Failed to delete Daily room:', error.message);
     }

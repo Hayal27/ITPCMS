@@ -1,20 +1,20 @@
 
 const con = require('./db');
-const bcrypt = require('bcrypt'); 
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 // Secret key (as specified in your requirements)
-const JWT_SECRET_KEY = process.env.JWT_SECRET || 'hayaltamrat@27'; 
+const JWT_SECRET_KEY = process.env.JWT_SECRET || 'cms_default_jwt_secret_change_me'; // WARNING: Change in .env
 
 // Function to handle login
 const getLogin = async (req, res) => {
     const { user_name, pass } = req.body;
-    
+
     // Validate that pass is provided
     if (!pass) {
         return res.status(400).json({ success: false, message: 'Password is required' });
     }
-    
+
     // Updated query: join employees table using employee_id present in users table 
     const query = `
       SELECT u.*, e.*
@@ -22,7 +22,7 @@ const getLogin = async (req, res) => {
       LEFT JOIN employees e ON u.employee_id = e.employee_id 
       WHERE u.user_name = ?
     `;
-    
+
     con.query(query, [user_name], async (err, results) => {
         if (err) {
             console.error('Database error:', err);

@@ -22,15 +22,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const verifyToken = require('../middleware/verifyToken');
+
 // Steps Routes
 router.get('/steps', investController.getAllSteps);
-router.post('/steps', upload.single('doc'), investController.createStep);
-router.put('/steps/:id', upload.single('doc'), investController.updateStep);
-router.delete('/steps/:id', investController.deleteStep);
+router.post('/steps', verifyToken, upload.single('doc'), investController.createStep);
+router.put('/steps/:id', verifyToken, upload.single('doc'), investController.updateStep);
+router.delete('/steps/:id', verifyToken, investController.deleteStep);
 
 // Resources Routes
 router.get('/resources', investController.getAllResources);
-router.post('/resources', upload.single('file'), investController.createResource);
-router.delete('/resources/:id', investController.deleteResource);
+router.post('/resources', verifyToken, upload.single('file'), investController.createResource);
+router.delete('/resources/:id', verifyToken, investController.deleteResource);
 
 module.exports = router;

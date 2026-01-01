@@ -35,21 +35,23 @@ const upload = multer({
     }
 });
 
+const verifyToken = require('../middleware/verifyToken');
+
 // Public Routes
 router.get("/jobs", careerController.getJobs);
 router.post("/jobs/apply", upload.single("resume"), careerController.applyJob);
 router.get("/jobs/track/:code", careerController.trackApplication);
 
 // Admin Routes (Job Management)
-router.get("/admin/jobs", careerController.getJobsAdmin);
-router.post("/admin/jobs", careerController.createJob);
-router.put("/admin/jobs/:id", careerController.updateJob);
-router.delete("/admin/jobs/:id", careerController.deleteJob);
+router.get("/admin/jobs", verifyToken, careerController.getJobsAdmin);
+router.post("/admin/jobs", verifyToken, careerController.createJob);
+router.put("/admin/jobs/:id", verifyToken, careerController.updateJob);
+router.delete("/admin/jobs/:id", verifyToken, careerController.deleteJob);
 
 // Admin Routes (Application Management)
-router.get("/admin/applications", careerController.getApplicationsAdmin);
-router.put("/admin/applications/:id/status", careerController.updateStatus);
-router.post("/admin/applications/bulk-status", careerController.bulkUpdateStatus);
+router.get("/admin/applications", verifyToken, careerController.getApplicationsAdmin);
+router.put("/admin/applications/:id/status", verifyToken, careerController.updateStatus);
+router.post("/admin/applications/bulk-status", verifyToken, careerController.bulkUpdateStatus);
 
 // Public status check
 router.post("/public/application-status", careerController.checkApplicationStatus);

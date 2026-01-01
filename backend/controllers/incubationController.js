@@ -1,4 +1,6 @@
 const db = require('../models/db');
+const fs = require('fs');
+const path = require('path');
 
 const query = (sql, args) => {
     return new Promise((resolve, reject) => {
@@ -134,7 +136,19 @@ exports.updateSuccessStory = async (req, res) => {
 exports.deleteSuccessStory = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find story to get image path before deleting
+        const [story] = await query('SELECT image_url FROM incubation_success_stories WHERE id = ?', [id]);
+
         await query('DELETE FROM incubation_success_stories WHERE id = ?', [id]);
+
+        if (story && story.image_url) {
+            const filePath = path.join(__dirname, '..', story.image_url);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
         res.status(200).json({ message: 'Success story deleted successfully' });
     } catch (error) {
         console.error('Error deleting success story:', error);

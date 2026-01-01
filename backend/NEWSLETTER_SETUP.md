@@ -4,14 +4,14 @@
 This system allows users to subscribe to the Ethiopian IT Park newsletter and automatically sends email notifications when new news or events are posted.
 
 ## Features
-- ✅ Newsletter subscription with email validation
-- ✅ Welcome email sent to new subscribers
-- ✅ Automatic email notifications for new news/events
-- ✅ Toast notifications for user feedback
-- ✅ Admin dashboard to view all subscribers
-- ✅ Unsubscribe functionality
-- ✅ Duplicate email prevention
-- ✅ Reactivation for previously unsubscribed users
+- [x] Newsletter subscription with email validation
+- [x] Welcome email sent to new subscribers
+- [x] Automatic email notifications for new news/events
+- [x] Toast notifications for user feedback
+- [x] Admin dashboard to view all subscribers
+- [x] Unsubscribe functionality
+- [x] Duplicate email prevention
+- [x] Reactivation for previously unsubscribed users
 
 ## Setup Instructions
 

@@ -1,5 +1,29 @@
-node_modules
-dist
-dist-ssr
-.env
+# Dependencies
+node_modules/
+
+# Production
+dist/
+dist-ssr/
 build/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (Keep directory but ignore contents)
+uploads/*
+!uploads/.gitkeep

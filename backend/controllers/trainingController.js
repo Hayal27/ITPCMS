@@ -1,5 +1,7 @@
 
 const db = require('../models/db');
+const fs = require('fs');
+const path = require('path');
 
 const query = (sql, args) => {
     return new Promise((resolve, reject) => {
@@ -106,7 +108,20 @@ exports.updateTraining = async (req, res) => {
 exports.deleteTraining = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find training to get image path before deleting
+        const [training] = await query('SELECT image_url FROM training_workshops WHERE id = ?', [id]);
+
         await query('DELETE FROM training_workshops WHERE id = ?', [id]);
+
+        // Delete associated file if it exists
+        if (training && training.image_url) {
+            const filePath = path.join(__dirname, '..', training.image_url);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
         res.status(200).json({ message: 'Training deleted successfully' });
     } catch (error) {
         console.error('Error deleting training:', error);

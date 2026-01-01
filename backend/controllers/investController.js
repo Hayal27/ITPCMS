@@ -1,5 +1,7 @@
 
 const db = require('../models/db');
+const fs = require('fs');
+const path = require('path');
 
 const query = (sql, args) => {
     return new Promise((resolve, reject) => {
@@ -61,7 +63,19 @@ exports.updateStep = async (req, res) => {
 exports.deleteStep = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find step to get doc_url
+        const [step] = await query('SELECT doc_url FROM investment_steps WHERE id=?', [id]);
+
         await query('DELETE FROM investment_steps WHERE id=?', [id]);
+
+        if (step && step.doc_url) {
+            const filePath = path.join(__dirname, '..', step.doc_url);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
         res.status(200).json({ message: 'Step deleted' });
     } catch (error) {
         console.error('Error deleting step:', error);
@@ -101,7 +115,19 @@ exports.createResource = async (req, res) => {
 exports.deleteResource = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find resource to get file_url
+        const [resource] = await query('SELECT file_url FROM investment_resources WHERE id=?', [id]);
+
         await query('DELETE FROM investment_resources WHERE id=?', [id]);
+
+        if (resource && resource.file_url) {
+            const filePath = path.join(__dirname, '..', resource.file_url);
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
+        }
+
         res.status(200).json({ message: 'Resource deleted' });
     } catch (error) {
         console.error('Error deleting resource:', error);

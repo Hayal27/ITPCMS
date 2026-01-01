@@ -1,4 +1,6 @@
 const db = require('../models/db');
+const fs = require('fs');
+const path = require('path');
 
 // Manual promise wrapper
 const query = (sql, args) => {
@@ -139,7 +141,32 @@ exports.updatePartner = async (req, res) => {
 exports.deletePartner = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find partner to get logo and gallery paths
+        const [partner] = await query('SELECT logo, gallery FROM partners WHERE id = ?', [id]);
+
         await query('DELETE FROM partners WHERE id = ?', [id]);
+
+        if (partner) {
+            // Delete logo
+            if (partner.logo) {
+                const logoPath = path.join(__dirname, '..', partner.logo);
+                if (fs.existsSync(logoPath)) fs.unlinkSync(logoPath);
+            }
+            // Delete gallery images
+            if (partner.gallery) {
+                try {
+                    const gallery = JSON.parse(partner.gallery);
+                    if (Array.isArray(gallery)) {
+                        gallery.forEach(img => {
+                            const imgPath = path.join(__dirname, '..', img);
+                            if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+                        });
+                    }
+                } catch (e) { console.error("Error parsing gallery JSON on delete:", e); }
+            }
+        }
+
         res.status(200).json({ message: 'Partner deleted successfully' });
     } catch (error) {
         console.error('Error deleting partner:', error);
@@ -254,7 +281,32 @@ exports.updateInvestor = async (req, res) => {
 exports.deleteInvestor = async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Find investor to get image and gallery paths
+        const [investor] = await query('SELECT image, gallery FROM investors WHERE id = ?', [id]);
+
         await query('DELETE FROM investors WHERE id = ?', [id]);
+
+        if (investor) {
+            // Delete image
+            if (investor.image) {
+                const imgPath = path.join(__dirname, '..', investor.image);
+                if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+            }
+            // Delete gallery images
+            if (investor.gallery) {
+                try {
+                    const gallery = JSON.parse(investor.gallery);
+                    if (Array.isArray(gallery)) {
+                        gallery.forEach(img => {
+                            const imgPath = path.join(__dirname, '..', img);
+                            if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+                        });
+                    }
+                } catch (e) { console.error("Error parsing gallery JSON on delete:", e); }
+            }
+        }
+
         res.status(200).json({ message: 'Investor deleted successfully' });
     } catch (error) {
         console.error('Error deleting investor:', error);

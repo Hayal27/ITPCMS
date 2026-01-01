@@ -186,9 +186,9 @@ exports.toggleStreaming = async (req, res) => {
             try {
                 const room = await dailyService.createBroadcastRoom(id);
                 dailyRoomUrl = room.url;
-                console.log('✅ Created Daily room:', dailyRoomUrl);
+                console.log('Created Daily room:', dailyRoomUrl);
             } catch (error) {
-                console.error('⚠️ Failed to create Daily room:', error.message);
+                console.error('Failed to create Daily room:', error.message);
             }
         }
 

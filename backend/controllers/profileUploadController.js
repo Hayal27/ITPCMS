@@ -18,25 +18,32 @@ const storage = multer.diskStorage({
   },
 });
 
-const uploadAvatar = multer({ storage }).single("avatar");
+const imageFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed!'), false);
+  }
+};
+
+const uploadAvatar = multer({
+  storage,
+  limits: { fileSize: 1024 * 1024 * 2 }, // 2MB limit for avatars
+  fileFilter: imageFilter
+}).single("avatar");
 
 // Multer instance for a SINGLE event image
 const uploadNewsEventImage = multer({
   storage: storage,
   limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
+  fileFilter: imageFilter
 }).single("imageFile"); // Expects a single file with field name "imageFile"
 
 // NEW Multer instance for MULTIPLE news images
 const uploadMultipleNewsImages = multer({
   storage: storage,
   limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit per file
-  fileFilter: (req, file, cb) => { // Optional: Add file type filter
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed!'), false);
-    }
-  }
+  fileFilter: imageFilter
 }).array("newsImages", 10); // Expects multiple files (up to 10) with field name "newsImages"
 
 
@@ -857,7 +864,7 @@ const addMediaItem = (req, res) => {
 // getMediaItems, updateMediaItem, deleteMediaItem
 const deleteFileByUrlPath = (fileUrlPath) => {
   if (fileUrlPath && typeof fileUrlPath === 'string' && !fileUrlPath.startsWith('http')) {
-    const filePath = path.join(process.cwd(), 'public', fileUrlPath);
+    const filePath = path.join(__dirname, "..", fileUrlPath);
     fs.unlink(filePath, (err) => {
       if (err) {
         // ENOENT (Error NO ENTry) means file not found, which is acceptable if it was already deleted or path is wrong.
@@ -1182,7 +1189,7 @@ const getCommentsByNewsItemId = async (req, res) => {
   const sql = `
     SELECT id, news_item_id, parent_id, name, email, text, created_at, approved 
     FROM comments 
-    WHERE news_item_id = ?  
+    WHERE news_item_id = ? AND approved = ? 
     ORDER BY created_at ASC
   `;
   // Fetch only approved comments (approved = true or 1)

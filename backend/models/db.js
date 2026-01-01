@@ -22,6 +22,6 @@ const pool = mysql.createPool({
   ...dbConfig
 });
 
-console.log("Database configuration loaded successfully (mysql2)");
+// Database configuration loaded successfully (mysql2)
 
 module.exports = pool;

@@ -29,6 +29,7 @@ const incubationRoutes = require("./routes/incubationRoutes.js");
 const trainingRoutes = require("./routes/trainingRoutes.js");
 const investRoutes = require("./routes/investRoutes.js");
 const loggingMiddleware = require("./middleware/loggingMiddleware.js");
+const verifyToken = require("./middleware/verifyToken.js");
 const setupSocket = require("./socketHandler.js");
 
 const app = express();
@@ -37,7 +38,7 @@ const PORT = process.env.PORT || 5005;
 
 // PeerJS Server Setup
 const peerServer = ExpressPeerServer(server, {
-  debug: true,
+  debug: false,
   allow_discovery: true,
   proxied: true
 });
@@ -46,7 +47,7 @@ setupSocket(server);
 
 // Middleware
 const corsOptions = {
-  origin: "*", 
+  origin: "*",
   methods: "GET,POST,PUT,DELETE",
   allowedHeaders: "Content-Type,Authorization",
 };
@@ -54,7 +55,7 @@ app.use(cors(corsOptions));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "hayaltamrat@27",
+    secret: process.env.SESSION_SECRET || "cms_default_session_secret_change_me", // WARNING: Change in .env
     resave: false,
     saveUninitialized: true,
     cookie: { maxAge: 3600000 },
@@ -85,7 +86,8 @@ app.use("/api/incubation", incubationRoutes);
 app.use("/api/trainings", trainingRoutes);
 app.use("/api/invest", investRoutes);
 app.post("/login", authMiddleware.login);
-app.put("/logout/:user_id", authMiddleware.logout);
+// Route Protection for Logout
+app.put("/logout/:user_id", verifyToken, authMiddleware.logout);
 
 // Global Error Handling
 app.use((err, req, res, next) => {

@@ -42,15 +42,7 @@ const validatePeriodParams = (req, res) => {
   return true;
 };
 
-// const handleEmptyResults = (results, res, defaultValue = null) => {
-//   if (!results || results.length === 0) {
-//     return res.status(404).json({
-//       message: "No data found for the specified criteria",
-//       data: defaultValue
-//     });
-//   }
-//   return false;
-// };
+// Base JOIN clause for proper table relationships (always included joins)
 
 // Base JOIN clause for proper table relationships (always included joins)
 const BASE_JOIN = `
@@ -59,57 +51,64 @@ const BASE_JOIN = `
   JOIN objectives o ON so.objective_id = o.objective_id
   JOIN goals g ON o.goal_id = g.goal_id`;
 
-  const getFilterConditions = (req) => {
-    const conditions = [];
-  
-    if (req.query.year) {
-      conditions.push(`g.year = '${req.query.year}'`);
+const getFilterConditions = (req) => {
+  const conditions = [];
+  const values = [];
+
+  if (req.query.year) {
+    conditions.push("g.year = ?");
+    values.push(req.query.year);
+  }
+
+  if (req.query.specific_objective_name) {
+    conditions.push("so.specific_objective_name = ?");
+    values.push(req.query.specific_objective_name);
+  }
+
+  if (req.query.year_range) {
+    const years = req.query.year_range.split('-');
+    if (years.length === 2) {
+      conditions.push("g.year BETWEEN ? AND ?");
+      values.push(years[0], years[1]);
     }
-  
-    // Fix: Check for specific_objective_name to make it consistent with the query value sent by the client.
-    if (req.query.specific_objective_name) {
-      conditions.push(`so.specific_objective_name = '${req.query.specific_objective_name}'`);
-    }
-  
-    // Check for a valid year_range format (e.g., "2020-2023")
-    if (req.query.year_range) {
-      const years = req.query.year_range.split('-');
-      if (years.length === 2) {
-        conditions.push(`g.year BETWEEN '${years[0]}' AND '${years[1]}'`);
-      }
-    }
-  
-    if (req.query.quarter) {
-      conditions.push(`g.quarter = '${req.query.quarter}'`);
-    }
-  
-    if (req.query.department) {
-      conditions.push(`d.department = '${req.query.department}'`);
-    }
-  
-    if (req.query.created_by) {
-      conditions.push(`sod.created_by = '${req.query.created_by}'`);
-    }
-  
-    if (req.query.view) {
-      conditions.push(`so.view = '${req.query.view}'`);
-    }
-  
-    return conditions.length > 0 ? " AND " + conditions.join(" AND ") : "";
-  };
-  
+  }
+
+  if (req.query.quarter) {
+    conditions.push("g.quarter = ?");
+    values.push(req.query.quarter);
+  }
+
+  if (req.query.department) {
+    conditions.push("d.department = ?");
+    values.push(req.query.department);
+  }
+
+  if (req.query.created_by) {
+    conditions.push("sod.created_by = ?");
+    values.push(req.query.created_by);
+  }
+
+  if (req.query.view) {
+    conditions.push("so.view = ?");
+    values.push(req.query.view);
+  }
+
+  const filterClause = conditions.length > 0 ? " AND " + conditions.join(" AND ") : "";
+  return { filterClause, filterValues: values };
+};
+
 
 // Display Total Cost (summing CIoutcome) with additional filters
 const displayTotalCost = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIoutcome), 0) as total_cost
       ${joinClause}
-      WHERE sod.plan_type = 'cost' ${extraFilters}
+      WHERE sod.plan_type = 'cost' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total cost');
       if (handleEmptyResults(results, res, { total_cost: 0 })) return;
       res.json(results[0].total_cost);
@@ -124,13 +123,13 @@ const displayTotalCost = async (req, res) => {
 const displayTotalCostPlan = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIplan), 0) as total_cost_plan
       ${joinClause}
-      WHERE sod.plan_type = 'cost' ${extraFilters}
+      WHERE sod.plan_type = 'cost' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total cost plan');
       if (handleEmptyResults(results, res, { total_cost_plan: 0 })) return;
       res.json(results[0].total_cost_plan);
@@ -145,15 +144,15 @@ const displayTotalCostPlan = async (req, res) => {
 const compareCostPlanOutcome = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT 
         COALESCE(SUM(CASE WHEN sod.plan_type = 'cost' THEN sod.CIplan END), 0) as total_cost_plan,
         COALESCE(SUM(CASE WHEN sod.plan_type = 'cost' THEN sod.CIoutcome END), 0) as total_cost_outcome
       ${joinClause}
-      WHERE sod.plan_type = 'cost' ${extraFilters}
+      WHERE sod.plan_type = 'cost' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'comparing cost plan and outcome');
       if (handleEmptyResults(results, res, { total_cost_plan: 0, total_cost_outcome: 0 })) return;
       const { total_cost_plan, total_cost_outcome } = results[0];
@@ -180,12 +179,11 @@ const costPlanOutcomeDifferenceRegularBudget = async (req, res) => {
     // Retrieve joinClause and extraFilters from the request.
     // Using getJoinClause which returns the BASE_JOIN already.
     let joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req) || "";
+    const { filterClause, filterValues } = getFilterConditions(req);
 
     // If joinClause is missing a FROM clause, fallback to the BASE_JOIN.
     if (!joinClause || !/FROM\s+/i.test(joinClause)) {
       joinClause = BASE_JOIN;
-      console.warn("joinClause not provided or missing FROM clause; using default BASE_JOIN");
     }
 
     // Build the SQL query string. This groups rows by costName.
@@ -199,26 +197,21 @@ const costPlanOutcomeDifferenceRegularBudget = async (req, res) => {
       ${joinClause}
       WHERE 
         sod.plan_type = 'cost' AND 
-        sod.cost_type = 'regular_budget' ${extraFilters}
+        sod.cost_type = 'regular_budget' ${filterClause}
       GROUP BY sod.costName
     `;
-    
-    console.log("Constructed Query:", query);
 
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) {
         console.error("Database error occurred:", err);
         return handleDatabaseError(err, res, "comparing cost plan and outcome total_regular");
       }
-      
+
       // Check if the results are empty. If so, return default structured response.
       if (handleEmptyResults(results, res, { data: [], totals: { plan: 0, outcome: 0, difference: 0 } })) {
         return;
       }
-      
-      // Log the raw SQL results for debugging purposes.
-      console.log("SQL Query Results:", results);
-      
+
       // Compute overall totals by iterating over the grouped results.
       let totalPlan = 0;
       let totalOutcome = 0;
@@ -227,7 +220,7 @@ const costPlanOutcomeDifferenceRegularBudget = async (req, res) => {
         totalOutcome += Number(row.outcome);
       });
       const totalDifference = totalPlan - totalOutcome;
-      
+
       // Build the final response object.
       const responseData = {
         data: results, // array of { costName, plan, outcome, difference }
@@ -237,14 +230,11 @@ const costPlanOutcomeDifferenceRegularBudget = async (req, res) => {
           difference: totalDifference
         }
       };
-      
-      // Log computed totals.
-      console.log("Computed Totals - Total Plan:", totalPlan, "Total Outcome:", totalOutcome, "Total Difference:", totalDifference);
-      
+
       // Send the computed data to the frontend.
       res.json(responseData);
     });
-    
+
   } catch (error) {
     console.error("Unexpected error in costPlanOutcomeDifferenceRegularBudget:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
@@ -257,12 +247,11 @@ const costPlanOutcomeDifferenceCapitalBudget = async (req, res) => {
     // Retrieve joinClause and extraFilters from the request.
     // Using getJoinClause which returns the BASE_JOIN already.
     let joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req) || "";
+    const { filterClause, filterValues } = getFilterConditions(req);
 
     // If joinClause is missing a FROM clause, fallback to the BASE_JOIN.
     if (!joinClause || !/FROM\s+/i.test(joinClause)) {
       joinClause = BASE_JOIN;
-      console.warn("joinClause not provided or missing FROM clause; using default BASE_JOIN");
     }
 
     // Build the SQL query string. This groups rows by costName.
@@ -276,26 +265,21 @@ const costPlanOutcomeDifferenceCapitalBudget = async (req, res) => {
       ${joinClause}
       WHERE 
         sod.plan_type = 'cost' AND 
-        sod.cost_type = 'capital_project_budget' ${extraFilters}
+        sod.cost_type = 'capital_project_budget' ${filterClause}
       GROUP BY sod.costName
     `;
-    
-    console.log("Constructed Query:", query);
 
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) {
         console.error("Database error occurred:", err);
         return handleDatabaseError(err, res, "comparing cost plan and outcome total_capital");
       }
-      
+
       // Check if the results are empty. If so, return default structured response.
       if (handleEmptyResults(results, res, { data: [], totals: { plan: 0, outcome: 0, difference: 0 } })) {
         return;
       }
-      
-      // Log the raw SQL results for debugging purposes.
-      console.log("SQL Query Results:", results);
-      
+
       // Compute overall totals by iterating over the grouped results.
       let totalPlan = 0;
       let totalOutcome = 0;
@@ -304,7 +288,7 @@ const costPlanOutcomeDifferenceCapitalBudget = async (req, res) => {
         totalOutcome += Number(row.outcome);
       });
       const totalDifference = totalPlan - totalOutcome;
-      
+
       // Build the final response object.
       const responseData = {
         data: results, // array of { costName, plan, outcome, difference }
@@ -314,14 +298,11 @@ const costPlanOutcomeDifferenceCapitalBudget = async (req, res) => {
           difference: totalDifference
         }
       };
-      
-      // Log computed totals.
-      console.log("Computed Totals - Total Plan:", totalPlan, "Total Outcome:", totalOutcome, "Total Difference:", totalDifference);
-      
+
       // Send the computed data to the frontend.
       res.json(responseData);
     });
-    
+
   } catch (error) {
     console.error("Unexpected error in costPlanOutcomeDifferenceCapitalBudget:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
@@ -342,16 +323,15 @@ const costPlanOutcomeDifferenceCapitalBudget = async (req, res) => {
 const displayTotalCostExcutionPercentage = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(AVG(sod.CIexecution_percentage), 0) AS average_cost_CIexecution_percentage
       ${joinClause}
-      WHERE sod.plan_type = 'cost' ${extraFilters}
+      WHERE sod.plan_type = 'cost' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching average CIexecution_percentage');
       if (handleEmptyResults(results, res, { average_cost_CIexecution_percentage: 0 })) return;
-      console.log('Fetched average cost execution percentage:', results[0].average_cost_CIexecution_percentage);
       res.json({ averageCostCIExecutionPercentage: results[0].average_cost_CIexecution_percentage });
     });
   } catch (error) {
@@ -364,13 +344,13 @@ const displayTotalCostExcutionPercentage = async (req, res) => {
 const displayTotalIncomePlanUSD = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIplan), 0) as total_income_plan_USD
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total_income_plan_USD');
       if (handleEmptyResults(results, res, { total_income_plan_USD: 0 })) return;
       res.json(results[0].total_income_plan_USD);
@@ -385,13 +365,13 @@ const displayTotalIncomePlanUSD = async (req, res) => {
 const displayTotalIncomeplanETB = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIplan), 0) as total_income_plan_ETB
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total_income_plan_ETB');
       if (handleEmptyResults(results, res, { total_income_plan_ETB: 0 })) return;
       res.json(results[0].total_income_plan_ETB);
@@ -406,13 +386,13 @@ const displayTotalIncomeplanETB = async (req, res) => {
 const displayTotalIncomeOutcomeUSD = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIoutcome), 0) as total_income_outcome_USD
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total_income_outcome_USD');
       if (handleEmptyResults(results, res, { total_income_outcome_USD: 0 })) return;
       res.json(results[0].total_income_outcome_USD);
@@ -427,13 +407,13 @@ const displayTotalIncomeOutcomeUSD = async (req, res) => {
 const displayTotalIncomeOutcomeETB = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT COALESCE(SUM(sod.CIoutcome), 0) as total_income_outcome_ETB
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total_income_outcome_ETB');
       if (handleEmptyResults(results, res, { total_income_outcome_ETB: 0 })) return;
       res.json(results[0].total_income_outcome_ETB);
@@ -448,15 +428,15 @@ const displayTotalIncomeOutcomeETB = async (req, res) => {
 const compareIncomePlanOutcomeETB = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT 
         COALESCE(SUM(sod.CIplan), 0) as total_income_plan_ETB,
         COALESCE(SUM(sod.CIoutcome), 0) as total_income_outcome_ETB
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'ETB' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'comparing income plan and outcome (ETB)');
       if (handleEmptyResults(results, res, { total_income_plan_ETB: 0, total_income_outcome_ETB: 0 })) return;
       const { total_income_plan_ETB, total_income_outcome_ETB } = results[0];
@@ -473,15 +453,15 @@ const compareIncomePlanOutcomeETB = async (req, res) => {
 const compareIncomePlanOutcomeUSD = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT 
         COALESCE(SUM(sod.CIplan), 0) as total_income_plan_USD,
         COALESCE(SUM(sod.CIoutcome), 0) as total_income_outcome_USD
       ${joinClause}
-      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${extraFilters}
+      WHERE sod.plan_type = 'income' AND sod.income_exchange = 'USD' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'comparing income plan and outcome (USD)');
       if (handleEmptyResults(results, res, { total_income_plan_USD: 0, total_income_outcome_USD: 0 })) return;
       const { total_income_plan_USD, total_income_outcome_USD } = results[0];
@@ -499,10 +479,8 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
   try {
     const USD_TO_ETB_RATE = 120; // Exchange rate: 1 USD = 120 ETB
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
-    
-    console.log('Starting income comparison with filters:', { joinClause, extraFilters });
-    
+    const { filterClause, filterValues } = getFilterConditions(req);
+
     const query = `
       SELECT 
         COALESCE(SUM(CASE 
@@ -520,23 +498,13 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
         COALESCE(SUM(CASE WHEN sod.income_exchange = 'USD' THEN CIplan ELSE 0 END), 0) as total_income_plan_USD,
         COALESCE(SUM(CASE WHEN sod.income_exchange = 'USD' THEN CIoutcome ELSE 0 END), 0) as total_income_outcome_USD
       ${joinClause}
-      WHERE sod.plan_type = 'income' ${extraFilters}
+      WHERE sod.plan_type = 'income' ${filterClause}
     `;
 
-    console.log('Executing query:', query);
-
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) {
-        console.error('Database Error:', {
-          message: err.message,
-          code: err.code,
-          state: err.sqlState,
-          stack: err.stack
-        });
         return handleDatabaseError(err, res, 'comparing total income plan and outcome');
       }
-
-      console.log('Query results:', JSON.stringify(results, null, 2));
 
       if (handleEmptyResults(results, res, {
         total_income_plan_combined_ETB: 0,
@@ -546,7 +514,6 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
           USD: { plan: 0, outcome: 0 }
         }
       })) {
-        console.log('No results found for the query');
         return;
       }
 
@@ -558,15 +525,6 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
         total_income_plan_USD,
         total_income_outcome_USD
       } = results[0];
-
-      console.log('Extracted values:', {
-        total_income_plan_combined_ETB,
-        total_income_outcome_combined_ETB,
-        total_income_plan_ETB,
-        total_income_outcome_ETB,
-        total_income_plan_USD,
-        total_income_outcome_USD
-      });
 
       const difference_combined_ETB = total_income_plan_combined_ETB - total_income_outcome_combined_ETB;
 
@@ -595,7 +553,6 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
         }
       };
 
-      console.log('Final response:', JSON.stringify(response, null, 2));
       res.json(response);
     });
   } catch (error) {
@@ -679,7 +636,7 @@ const compareIncomePlanOutcomeTotal = async (req, res) => {
 //     const query = `
 //       SELECT COALESCE(SUM(sod.income), 0) as total_income 
 //       ${BASE_JOIN}`;
-    
+
 //     con.query(query, (err, results) => {
 //       if (err) return handleDatabaseError(err, res, 'fetching total income');
 //       if (handleEmptyResults(results, res, { total_income: 0 })) return;
@@ -781,7 +738,7 @@ const displayTotalHR = async (req, res) => {
     const query = `
       SELECT COALESCE(SUM(sod.hr_count), 0) as total_hr 
       ${BASE_JOIN}`;
-    
+
     con.query(query, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'fetching total HR');
       if (handleEmptyResults(results, res, { total_hr: 0 })) return;
@@ -817,7 +774,7 @@ const displayTotalHR = async (req, res) => {
 //   }
 // };
 
-  
+
 
 
 
@@ -826,20 +783,20 @@ const displayTotalHR = async (req, res) => {
 const compareIncomePlanOutcomeTotal_capital = async (req, res) => {
   try {
     const joinClause = getJoinClause(req);
-    const extraFilters = getFilterConditions(req);
+    const { filterClause, filterValues } = getFilterConditions(req);
     const query = `
       SELECT 
         COALESCE(SUM(CASE WHEN sod.plan_type = 'cost' THEN sod.CIplan END), 0) as total_cost_plan_capital,
         COALESCE(SUM(CASE WHEN sod.plan_type = 'cost' THEN sod.CIoutcome END), 0) as total_cost_outcome_capital
       ${joinClause}
-      WHERE sod.plan_type = 'cost' AND sod.cost_type = 'capital_project_budget' ${extraFilters}
+      WHERE sod.plan_type = 'cost' AND sod.cost_type = 'capital_project_budget' ${filterClause}
     `;
-    con.query(query, (err, results) => {
+    con.query(query, filterValues, (err, results) => {
       if (err) return handleDatabaseError(err, res, 'comparing cost plan and outcome total_capital');
       if (handleEmptyResults(results, res, { total_cost_plan_capital: 0, total_cost_outcome_capital: 0 })) return;
       const { total_cost_plan_capital, total_cost_outcome_capital } = results[0];
       const difference = total_cost_plan_capital - total_cost_outcome_capital;
-   res.json({ total_cost_plan_capital, total_cost_outcome_capital, difference });
+      res.json({ total_cost_plan_capital, total_cost_outcome_capital, difference });
     });
   } catch (error) {
     console.error('Unexpected error in compareIncomePlanOutcomeTotal_capital:', error);
@@ -852,7 +809,7 @@ module.exports = {
   displayTotalCostPlan,
   compareCostPlanOutcome,
   displayTotalCostExcutionPercentage,
-  displayTotalIncomeOutcomeETB,  
+  displayTotalIncomeOutcomeETB,
   displayTotalIncomeOutcomeUSD,
   displayTotalIncomeplanETB,
   displayTotalIncomePlanUSD,
@@ -861,13 +818,4 @@ module.exports = {
   compareIncomePlanOutcomeTotal,
   costPlanOutcomeDifferenceRegularBudget,
   costPlanOutcomeDifferenceCapitalBudget,
-  
-//   compareCostCIplanAndCIoutcome,
-//   compareCostCIexecutionPercentage,
-//   displayTotalIncome,
-//   compareTotalIncomeCIplanAndCIoutcome,
-//   compareIncomeCIplanAndCIoutcomeByPeriod,
-//   compareCostAndIncome,
-//   displayTotalHR,
-//   compareTotalHRCIplanAndCIoutcome
 };
