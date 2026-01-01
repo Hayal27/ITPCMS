@@ -4,19 +4,15 @@ const session = require("express-session");
 const path = require("path");
 const http = require("http");
 const { ExpressPeerServer } = require("peer");
-require("dotenv").config(); // Load environment variables
+require("dotenv").config();
 
-
-// ✅ Conditionally use remote or local DB connection
-const db = process.env.USE_REMOTE_DB === "true"
-  ? require("./models/db.remote.js")
-  : require("./models/db.js");
+// Standardized DB connection
+const db = require("./models/db");
 
 // Importing Routes
 const userRoutes = require("./routes/userRoutes.js");
 const employeeRoutes = require("./routes/employeeRoutes.js");
 const planRoutes = require("./routes/planRoutes.js");
-// const dashboardRoutes = require("./routes/dashboardRoutes.js");
 const analyticsRoutes = require("./routes/analyticRoutes.js");
 const authMiddleware = require("./middleware/authMiddleware.js");
 const vehicleRoutes = require("./routes/vehicleRoutes.js");
@@ -37,7 +33,7 @@ const setupSocket = require("./socketHandler.js");
 
 const app = express();
 const server = http.createServer(app);
-const PORT = 5005;
+const PORT = process.env.PORT || 5005;
 
 // PeerJS Server Setup
 const peerServer = ExpressPeerServer(server, {
@@ -50,7 +46,7 @@ setupSocket(server);
 
 // Middleware
 const corsOptions = {
-  origin: "*", // Allow all origins
+  origin: "*", 
   methods: "GET,POST,PUT,DELETE",
   allowedHeaders: "Content-Type,Authorization",
 };
@@ -58,24 +54,21 @@ app.use(cors(corsOptions));
 
 app.use(
   session({
-    secret: "hayaltamrat@27", // Replace with a strong secret key
+    secret: process.env.SESSION_SECRET || "hayaltamrat@27",
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 3600000 }, // 1 hour session expiration
+    cookie: { maxAge: 3600000 },
   })
 );
 
-// Middleware to serve static files from the uploads folder
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(loggingMiddleware); // Logs every request
+app.use(loggingMiddleware);
 
 // Using Routes
 app.use("/api", userRoutes);
 app.use("/api", employeeRoutes);
-// app.use("/api", dashboardRoutes);
 app.use("/api", analyticsRoutes);
 app.use("/api", planRoutes);
 app.use("/api", vehicleRoutes);
@@ -94,16 +87,13 @@ app.use("/api/invest", investRoutes);
 app.post("/login", authMiddleware.login);
 app.put("/logout/:user_id", authMiddleware.logout);
 
-// Global Error Handling Middleware
+// Global Error Handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res
-    .status(500)
-    .send({ message: "Something went wrong!", error: err.message });
+  res.status(500).send({ message: "Something went wrong!", error: err.message });
 });
 
-// Start Server and Listen on All Network Interfaces
+// Start Server
 server.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-  console.log(`📡 PeerJS Server active on /peerjs`);
+  console.log(`Server running on port ${PORT}`);
 });

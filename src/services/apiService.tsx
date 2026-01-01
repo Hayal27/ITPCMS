@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export const BACKEND_URL = "https://api-cms.startechaigroup.com"; // Base URL for your backend
+export const BACKEND_URL = import.meta.env.VITE_API_URL || "https://api.ethiopianitpark.et"; // Base URL for your backend
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {

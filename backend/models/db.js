@@ -1,40 +1,27 @@
-const mysql = require("mysql2");
+const mysql = require("mysql2"); // Restored to mysql2 for Promise support
 require('dotenv').config();
+
+const isRemote = process.env.USE_REMOTE_DB === "true";
+
+const dbConfig = isRemote ? {
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: parseInt(process.env.MYSQLPORT || "33636", 10),
+} : {
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'cms',
+  port: parseInt(process.env.DB_PORT || "3306", 10),
+};
 
 const pool = mysql.createPool({
   connectionLimit: 10,
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
+  ...dbConfig
 });
 
-console.log('DB Config:', {
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME
-});
-
-pool.getConnection((err, connection) => {
-  if (err) {
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-      console.error('Database connection was closed.');
-    }
-    if (err.code === 'ER_CON_COUNT_ERROR') {
-      console.error('Database has too many connections.');
-    }
-    if (err.code === 'ECONNREFUSED') {
-      console.error('Database connection was refused.');
-    }
-    console.error("Error connecting to remote MySQL:", err);
-    return;
-  }
-  if (connection) {
-    console.log("Connected to remote MySQL database (via pool)");
-    connection.release();
-  }
-});
+console.log("Database configuration loaded successfully (mysql2)");
 
 module.exports = pool;

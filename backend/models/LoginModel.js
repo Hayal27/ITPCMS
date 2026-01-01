@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 // Secret key (as specified in your requirements)
-const JWT_SECRET_KEY = 'hayaltamrat@27'; 
+const JWT_SECRET_KEY = process.env.JWT_SECRET || 'hayaltamrat@27'; 
 
 // Function to handle login
 const getLogin = async (req, res) => {
