@@ -1,24 +1,18 @@
 const express = require('express');
 const router = express.Router();
-// const verifyToken = require('../middleware/verifyToken.js');
-const { checkSessionExpiration } = require('../middleware/sessionMiddleware');
-const {  getAllRoles, getAllUsers, updateUser, deleteUser, getDepartment,changeUserStatus } = require('../controllers/userController.js');
+const userController = require('../controllers/userController.js');
+const verifyToken = require('../middleware/verifyToken.js');
+const { restrictTo } = require('../middleware/roleMiddleware.js');
+const { hasMenuPermission } = require('../middleware/menuPermissionMiddleware.js');
 
-// Define routes
+const auditMiddleware = require('../middleware/auditMiddleware.js');
 
-
-
-// router.get('/roles', getAllRoles);
-router.get('/users',  getAllUsers);
-router.get('/department', getDepartment);
-
-router.put('/:user_id/status', changeUserStatus);
-
-
-
-router.put('/updateUser/:user_id', updateUser);
-router.delete('/deleteUser/:user_id', deleteUser);
+// Define routes - all protected by verifyToken and Admin restriction
+router.get('/users', verifyToken, hasMenuPermission('/users/all'), userController.getAllUsers);
+router.get('/department', verifyToken, restrictTo(1), userController.getDepartment);
+router.put('/:user_id/status', verifyToken, restrictTo(1), auditMiddleware('UPDATE_STATUS', 'User'), userController.changeUserStatus);
+router.post('/addUser', verifyToken, restrictTo(1), auditMiddleware('CREATE', 'User'), userController.addUser);
+router.put('/updateUser/:user_id', verifyToken, restrictTo(1), auditMiddleware('UPDATE', 'User'), userController.updateUser);
+router.delete('/deleteUser/:user_id', verifyToken, restrictTo(1), auditMiddleware('DELETE', 'User'), userController.deleteUser);
 
 module.exports = router;
-
-

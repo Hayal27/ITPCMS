@@ -42,7 +42,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
-FRONTEND_URL=https://api-cms.startechaigroup.com3002
+FRONTEND_URL=http://localhost:50053002
 ```
 
 **For Gmail:**
@@ -101,7 +101,7 @@ The subscription form is integrated in the Footer component:
 import { toast } from 'react-toastify';
 
 const handleSubmit = async (e) => {
-  const response = await fetch('https://api-cms.startechaigroup.com/api/subscribe', {
+  const response = await fetch('http://localhost:5005/api/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email })
@@ -138,7 +138,7 @@ const SubscribersAdmin = () => {
   const [subscribers, setSubscribers] = useState([]);
 
   useEffect(() => {
-    fetch('https://api-cms.startechaigroup.com/api/subscribers', {
+    fetch('http://localhost:5005/api/subscribers', {
       headers: {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }

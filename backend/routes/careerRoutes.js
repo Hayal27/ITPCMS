@@ -35,21 +35,24 @@ const upload = multer({
     }
 });
 
+const verifyToken = require("../middleware/verifyToken");
+const { restrictTo } = require("../middleware/roleMiddleware");
+
 // Public Routes
 router.get("/jobs", careerController.getJobs);
 router.post("/jobs/apply", upload.single("resume"), careerController.applyJob);
 router.get("/jobs/track/:code", careerController.trackApplication);
 
-// Admin Routes (Job Management)
-router.get("/admin/jobs", careerController.getJobsAdmin);
-router.post("/admin/jobs", careerController.createJob);
-router.put("/admin/jobs/:id", careerController.updateJob);
-router.delete("/admin/jobs/:id", careerController.deleteJob);
+// Admin Routes (Job Management) - Protected
+router.get("/admin/jobs", verifyToken, restrictTo(1, 4), careerController.getJobsAdmin);
+router.post("/admin/jobs", verifyToken, restrictTo(1, 4), careerController.createJob);
+router.put("/admin/jobs/:id", verifyToken, restrictTo(1, 4), careerController.updateJob);
+router.delete("/admin/jobs/:id", verifyToken, restrictTo(1, 4), careerController.deleteJob);
 
-// Admin Routes (Application Management)
-router.get("/admin/applications", careerController.getApplicationsAdmin);
-router.put("/admin/applications/:id/status", careerController.updateStatus);
-router.post("/admin/applications/bulk-status", careerController.bulkUpdateStatus);
+// Admin Routes (Application Management) - Protected
+router.get("/admin/applications", verifyToken, restrictTo(1, 4), careerController.getApplicationsAdmin);
+router.put("/admin/applications/:id/status", verifyToken, restrictTo(1, 4), careerController.updateStatus);
+router.post("/admin/applications/bulk-status", verifyToken, restrictTo(1, 4), careerController.bulkUpdateStatus);
 
 // Public status check
 router.post("/public/application-status", careerController.checkApplicationStatus);

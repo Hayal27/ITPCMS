@@ -1,84 +1,226 @@
 /* MediaGalleryAdmin.css */
 
-.media-gallery-admin-page .admin-card {
-    border: none;
-    border-radius: 0.75rem; /* Softer corners */
-    transition: transform 0.3s ease-out, box-shadow 0.3s ease-out;
-  }
-  
-  .media-gallery-admin-page .admin-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important; /* Enhanced shadow on hover */
-  }
-  
-  .media-gallery-admin-page .card-header {
-    color: gray;
-    border-bottom: none;
-    padding: 1.25rem 1.5rem;
-    border-top-left-radius: 0.75rem;
-    border-top-right-radius: 0.75rem;
-  }
-  
-  .media-gallery-admin-page .quill-editor-container .ql-toolbar {
-    border-top-left-radius: 0.375rem; /* Bootstrap's default form control border-radius */
-    border-top-right-radius: 0.375rem;
-    border-color: #ced4da; /* Bootstrap's default input border color */
-  }
-  
-  .media-gallery-admin-page .quill-editor-container .ql-container {
-    border-bottom-left-radius: 0.375rem;
-    border-bottom-right-radius: 0.375rem;
-    border-color: #ced4da;
-    min-height: 150px; /* Ensure a decent default height */
-    font-size: 1rem; /* Match Bootstrap's default form input font size */
-  }
-  
-  .media-gallery-admin-page .image-preview-container {
-    border: 1px solid #e0e0e0;
-    padding: 10px;
-    border-radius: 0.375rem;
-  }
-  
-  .media-gallery-admin-page .image-preview {
-    max-width: 100%;
-    max-height: 200px; /* Control preview size */
-    border-radius: 0.25rem;
-    object-fit: contain; /* Show entire image/video frame */
-  }
-  
-  .media-gallery-admin-page .submit-button {
-    min-width: 150px; /* Give button a decent minimum width */
-    padding: 0.5rem 1rem; /* Adjust padding for better feel */
-  }
-  
-  /* Fade-in animation for the card */
-  .fade-in-card {
-    opacity: 0;
-    animation: fadeInAnimation 0.5s ease-out forwards;
-  }
-  
-  @keyframes fadeInAnimation {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  /* Custom styling for tab content if not using React Bootstrap Tabs directly */
-  .tab-content-custom {
-    /* border-radius: 0 0 0.75rem 0.75rem; */ /* If card body has padding, this might not be needed */
-  }
-  
-  /* Ensure form labels have a good weight */
-  .media-gallery-admin-page .form-label {
-    font-weight: 500;
-  }
-  
-  /* Alert styling consistency */
-  .media-gallery-admin-page .alert {
-    border-radius: 0.375rem;
-  }
+:root {
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --secondary-gradient: linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%);
+  --premium-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+  /* Light Theme Variables */
+  --bg-page: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-input: #ffffff;
+  --bg-header: #ffffff;
+  --bg-zone: #f8fafc;
+  --bg-zone-hover: #f1f5f9;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-label: #475569;
+  --border-color: #e2e8f0;
+  --glass-border: rgba(255, 255, 255, 0.3);
+}
+
+/* Dark Theme Overrides */
+.dark,
+[data-bs-theme="dark"] {
+  --bg-page: #020617;
+  /* slate-950 */
+  --bg-card: rgba(15, 23, 42, 0.8);
+  /* slate-900 with alpha */
+  --bg-input: #1e293b;
+  /* slate-800 */
+  --bg-header: #1e293b;
+  --bg-zone: #0f172a;
+  --bg-zone-hover: #1e293b;
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-label: #cbd5e1;
+  --border-color: #334155;
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --premium-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+
+.media-gallery-admin-page {
+  background: var(--bg-page);
+  min-height: 100vh;
+  padding-bottom: 5rem;
+  transition: background-color 0.3s ease;
+}
+
+.premium-title {
+  font-weight: 800;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 2rem;
+}
+
+.admin-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: 1.5rem;
+  box-shadow: var(--premium-shadow);
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-header-premium {
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1.5rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header-premium h5 {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.form-label-premium {
+  font-weight: 600;
+  color: var(--text-label);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.form-control-premium {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
+  transition: all 0.2s;
+  background: var(--bg-input);
+  color: var(--text-main);
+}
+
+.form-control-premium:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  background: var(--bg-input);
+  color: var(--text-main);
+}
+
+.form-control-premium::placeholder {
+  color: var(--text-muted);
+}
+
+/* Dropzone Style */
+.media-upload-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  text-align: center;
+  transition: all 0.3s;
+  background: var(--bg-zone);
+  cursor: pointer;
+  position: relative;
+  color: var(--text-main);
+}
+
+.media-upload-zone:hover {
+  border-color: #6366f1;
+  background: var(--bg-zone-hover);
+}
+
+.media-upload-zone .upload-icon {
+  font-size: 2.5rem;
+  color: #6366f1;
+  margin-bottom: 1rem;
+}
+
+/* Previews */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Media Gallery List */
+.media-card-premium {
+  border: none;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background: var(--bg-card);
+  height: 100%;
+  color: var(--text-main);
+  border: 1px solid var(--glass-border);
+}
+
+.media-card-premium .card-title {
+  font-weight: 700;
+  color: var(--text-main);
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.media-card-premium .card-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.btn-edit {
+  background: var(--bg-zone-hover);
+  color: var(--text-label);
+  border: none;
+}
+
+.btn-edit:hover {
+  background: var(--border-color);
+  color: var(--text-main);
+}
+
+/* Modal and Overlays */
+.modal-content {
+  background-color: var(--bg-card);
+  color: var(--text-main);
+}
+
+/* Quill Overrides */
+.ql-container.ql-snow {
+  border-bottom-left-radius: 0.75rem;
+  border-bottom-right-radius: 0.75rem;
+  border-color: var(--border-color);
+  color: var(--text-main);
+}
+
+.ql-toolbar.ql-snow {
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  border-color: var(--border-color);
+  background: var(--bg-zone);
+}
+
+.ql-snow .ql-stroke {
+  stroke: var(--text-main);
+}
+
+.ql-snow .ql-fill {
+  fill: var(--text-main);
+}
+
+.ql-snow .ql-picker {
+  color: var(--text-main);
+}
+
+/* Select overrides */
+select.form-control-premium {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}
+
+.dark select.form-control-premium,
+[data-bs-theme="dark"] select.form-control-premium {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23f1f5f9' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+}

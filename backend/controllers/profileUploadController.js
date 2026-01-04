@@ -47,14 +47,17 @@ const uploadProfilePicture = (req, res) => {
       return res.status(500).json({ error: "File upload failed.", details: err.message });
     }
 
-    const { user_id } = req.body;
-    if (!user_id) {
+    // IDOR protection: Use the ID from the authenticated token
+    // Only allow Admins (role_id: 1) to upload for other users
+    const userToUpdate = (req.user.role_id === 1 && req.body.user_id) ? req.body.user_id : req.user.user_id;
+
+    if (!userToUpdate) {
       if (req.file) {
         fs.unlink(req.file.path, (unlinkErr) => {
           if (unlinkErr) console.error("Error deleting orphaned avatar:", req.file.path, unlinkErr);
         });
       }
-      return res.status(400).json({ error: "User ID is required." });
+      return res.status(400).json({ error: "User context not found." });
     }
 
     if (!req.file) {
@@ -64,7 +67,7 @@ const uploadProfilePicture = (req, res) => {
     const avatarUrl = `/uploads/${req.file.filename}`;
 
     const sql = `UPDATE users SET avatar_url = ? WHERE user_id = ?`;
-    con.query(sql, [avatarUrl, user_id], (dbErr, result) => {
+    con.query(sql, [avatarUrl, userToUpdate], (dbErr, result) => {
       if (dbErr) {
         console.error("Database error:", dbErr);
         fs.unlink(req.file.path, (unlinkErr) => {
@@ -73,7 +76,7 @@ const uploadProfilePicture = (req, res) => {
         return res.status(500).json({ error: "Database update failed." });
       }
 
-      console.log(`Profile picture uploaded for user: ${user_id} - URL: ${avatarUrl}`);
+      console.log(`Profile picture uploaded for user: ${userToUpdate} - URL: ${avatarUrl}`);
       res.json({ success: true, avatarUrl });
     });
   });
@@ -556,13 +559,22 @@ const deleteNews = (req, res) => {
       }
 
       if (imagePathsToDelete.length > 0) {
+        const uploadsDir = path.join(process.cwd(), 'uploads');
         imagePathsToDelete.forEach(imgPath => {
           if (imgPath && typeof imgPath === 'string') {
-            const fullPath = path.join(__dirname, "..", imgPath); // Corrected path
-            fs.unlink(fullPath, unlinkErr => {
-              if (unlinkErr) console.error(`Error deleting news image file ${fullPath}:`, unlinkErr);
-              else console.log(`Successfully deleted news image file: ${fullPath}`);
-            });
+            const normalizedPath = path.normalize(imgPath).replace(/^(\.\.(\/|\\|$))+/, '').replace(/\\/g, '/');
+            const relativePath = normalizedPath.startsWith('/uploads/') ? normalizedPath.slice(9) : normalizedPath.replace(/^\/+/, '');
+            const fullPath = path.join(uploadsDir, relativePath);
+
+            if (fullPath.startsWith(uploadsDir)) {
+              fs.unlink(fullPath, unlinkErr => {
+                if (unlinkErr) {
+                  if (unlinkErr.code !== 'ENOENT') console.error(`Error deleting news image file ${fullPath}:`, unlinkErr);
+                } else {
+                  console.log(`Successfully deleted news image file: ${fullPath}`);
+                }
+              });
+            }
           }
         });
       }
@@ -600,11 +612,20 @@ const deleteEvent = (req, res) => {
       }
 
       if (imagePathToDelete && typeof imagePathToDelete === 'string') {
-        const fullPath = path.join(__dirname, "..", imagePathToDelete); // Corrected path
-        fs.unlink(fullPath, unlinkErr => {
-          if (unlinkErr) console.error(`Error deleting event image file ${fullPath}:`, unlinkErr);
-          else console.log(`Successfully deleted event image file: ${fullPath}`);
-        });
+        const uploadsDir = path.join(process.cwd(), 'uploads');
+        const normalizedPath = path.normalize(imagePathToDelete).replace(/^(\.\.(\/|\\|$))+/, '').replace(/\\/g, '/');
+        const relativePath = normalizedPath.startsWith('/uploads/') ? normalizedPath.slice(9) : normalizedPath.replace(/^\/+/, '');
+        const fullPath = path.join(uploadsDir, relativePath);
+
+        if (fullPath.startsWith(uploadsDir)) {
+          fs.unlink(fullPath, unlinkErr => {
+            if (unlinkErr) {
+              if (unlinkErr.code !== 'ENOENT') console.error(`Error deleting event image file ${fullPath}:`, unlinkErr);
+            } else {
+              console.log(`Successfully deleted event image file: ${fullPath}`);
+            }
+          });
+        }
       }
       console.log(`Event item ${eventId} deleted successfully.`);
       res.json({ success: true, message: "Event item deleted successfully." });
@@ -857,11 +878,20 @@ const addMediaItem = (req, res) => {
 // getMediaItems, updateMediaItem, deleteMediaItem
 const deleteFileByUrlPath = (fileUrlPath) => {
   if (fileUrlPath && typeof fileUrlPath === 'string' && !fileUrlPath.startsWith('http')) {
-    const filePath = path.join(process.cwd(), 'public', fileUrlPath);
+    // Prevent Path Traversal by normalizing and ensuring it's within the uploads directory
+    const normalizedPath = path.normalize(fileUrlPath).replace(/^(\.\.(\/|\\|$))+/, '').replace(/\\/g, '/');
+    const relativePath = normalizedPath.startsWith('/uploads/') ? normalizedPath.slice(9) : normalizedPath.replace(/^\/+/, '');
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const filePath = path.join(uploadsDir, relativePath);
+
+    // Security check: Ensure the resolved path is still under the uploads directory
+    if (!filePath.startsWith(uploadsDir)) {
+      console.warn(`Blocked potential path traversal attempt to delete: ${filePath}`);
+      return;
+    }
+
     fs.unlink(filePath, (err) => {
       if (err) {
-        // ENOENT (Error NO ENTry) means file not found, which is acceptable if it was already deleted or path is wrong.
-        // Log other errors.
         if (err.code !== 'ENOENT') {
           console.error(`Error deleting file ${filePath}:`, err);
         }
@@ -1182,7 +1212,7 @@ const getCommentsByNewsItemId = async (req, res) => {
   const sql = `
     SELECT id, news_item_id, parent_id, name, email, text, created_at, approved 
     FROM comments 
-    WHERE news_item_id = ?  
+    WHERE news_item_id = ? AND approved = ?
     ORDER BY created_at ASC
   `;
   // Fetch only approved comments (approved = true or 1)

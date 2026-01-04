@@ -2,7 +2,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaGlobeAfrica, FaPlus, FaEdit, FaTrash, FaSearch, FaMapMarkedAlt } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/lands";
+const BACKEND_URL = "http://localhost:5005/api/lands";
 
 interface LandZone {
     id: number;

@@ -36,16 +36,19 @@ const upload = multer({
     }
 });
 
+const verifyToken = require('../middleware/verifyToken');
+const { restrictTo } = require('../middleware/roleMiddleware');
+
 // Partners routes
 router.get('/partners', partnersInvestorsController.getPartners);
-router.post('/partners', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createPartner);
-router.put('/partners/:id', upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updatePartner);
-router.delete('/partners/:id', partnersInvestorsController.deletePartner);
+router.post('/partners', verifyToken, restrictTo(1), upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createPartner);
+router.put('/partners/:id', verifyToken, restrictTo(1), upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updatePartner);
+router.delete('/partners/:id', verifyToken, restrictTo(1), partnersInvestorsController.deletePartner);
 
 // Investors routes
 router.get('/investors', partnersInvestorsController.getInvestors);
-router.post('/investors', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createInvestor);
-router.put('/investors/:id', upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updateInvestor);
-router.delete('/investors/:id', partnersInvestorsController.deleteInvestor);
+router.post('/investors', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.createInvestor);
+router.put('/investors/:id', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'gallery', maxCount: 10 }]), partnersInvestorsController.updateInvestor);
+router.delete('/investors/:id', verifyToken, restrictTo(1), partnersInvestorsController.deleteInvestor);
 
 module.exports = router;

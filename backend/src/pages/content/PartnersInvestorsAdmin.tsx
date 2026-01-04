@@ -2,7 +2,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaHandshake, FaBuilding, FaPlus, FaEdit, FaTrash, FaSearch, FaGlobe } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/partners-investors";
+const BACKEND_URL = "http://localhost:5005/api/partners-investors";
 
 interface Partner {
     id: number;

@@ -3,7 +3,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaChalkboardTeacher, FaPlus, FaEdit, FaTrash, FaSearch, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaLink } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/trainings";
+const BACKEND_URL = "http://localhost:5005/api/trainings";
 
 interface Training {
     id: number;
@@ -191,7 +191,7 @@ const TrainingAdmin: React.FC = () => {
                                         <div className="flex items-center space-x-3">
                                             <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700">
                                                 <img
-                                                    src={t.image_url?.startsWith('http') ? t.image_url : `https://api-cms.startechaigroup.com${t.image_url}`}
+                                                    src={t.image_url?.startsWith('http') ? t.image_url : `http://localhost:5005${t.image_url}`}
                                                     alt={t.title}
                                                     className="w-full h-full object-cover"
                                                     onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
@@ -321,7 +321,7 @@ const TrainingAdmin: React.FC = () => {
                                         <div className="mt-2 flex flex-col items-center">
                                             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center relative group">
                                                 {imagePreview || form.image_url ? (
-                                                    <img src={imagePreview || (form.image_url?.startsWith('http') ? form.image_url : `https://api-cms.startechaigroup.com${form.image_url}`)} alt="Preview" className="w-full h-full object-cover" />
+                                                    <img src={imagePreview || (form.image_url?.startsWith('http') ? form.image_url : `http://localhost:5005${form.image_url}`)} alt="Preview" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="text-center p-4">
                                                         <FaPlus className="text-gray-400 mb-2 mx-auto" size={24} />

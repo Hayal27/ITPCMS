@@ -1,81 +1,365 @@
-//AllUsersPage
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getUsers, changeUserStatus, deleteUser, getRoles, User, Role, getAllMenus, getUserPermissions, updateUserPermissions, Menu } from '../../services/apiService';
+import { Link } from 'react-router-dom';
+import Pagination from '../../components/Pagination';
+import { Modal, Button, Form, Spinner, Badge } from 'react-bootstrap';
 
-/**
- * AllUsersPage
- * Displays a list of all registered users in the CMS.
- * Replace the placeholder data with real API data as needed.
- */
 const AllUsersPage: React.FC = () => {
-  // Placeholder user data
-  const users = [
-    { id: 1, name: 'Alice Smith', email: 'alice@example.com', role: 'Admin', status: 'Active' },
-    { id: 2, name: 'Bob Johnson', email: 'bob@example.com', role: 'Editor', status: 'Active' },
-    { id: 3, name: 'Charlie Lee', email: 'charlie@example.com', role: 'Author', status: 'Inactive' },
-  ];
+  const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // User Permissions State
+  const [showPermsModal, setShowPermsModal] = useState(false);
+  const [selectedUserForPerms, setSelectedUserForPerms] = useState<User | null>(null);
+  const [allMenus, setAllMenus] = useState<Menu[]>([]);
+  const [userOverrides, setUserOverrides] = useState<{ menu_id: number, permission_type: string }[]>([]);
+  const [permsLoading, setPermsLoading] = useState(false);
+
+  // Filter states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [usersData, rolesData] = await Promise.all([getUsers(), getRoles()]);
+      setUsers(usersData);
+      setRoles(rolesData);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleStatusChange = async (userId: number, currentStatus: number | string) => {
+    try {
+      const newStatus = (currentStatus == 1 || currentStatus === '1') ? 0 : 1;
+      await changeUserStatus(userId, newStatus);
+      setUsers(users.map(u => u.user_id === userId ? { ...u, status: newStatus } : u));
+    } catch (err: any) {
+      alert('Failed to update status: ' + err.message);
+    }
+  };
+
+  const handleDelete = async (userId: number) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await deleteUser(userId);
+        setUsers(users.filter(u => u.user_id !== userId));
+      } catch (err: any) {
+        alert('Failed to delete user: ' + err.message);
+      }
+    }
+  };
+
+  // Permissions Logic
+  const handleOpenPerms = async (user: User) => {
+    setSelectedUserForPerms(user);
+    setShowPermsModal(true);
+    setPermsLoading(true);
+    try {
+      const [menus, overrides] = await Promise.all([
+        getAllMenus(),
+        getUserPermissions(user.user_id)
+      ]);
+      setAllMenus(menus);
+      setUserOverrides(overrides);
+    } catch (err: any) {
+      alert('Error loading user permissions: ' + err.message);
+    } finally {
+      setPermsLoading(false);
+    }
+  };
+
+  const handleSetOverride = (menuId: number, type: 'allow' | 'deny' | 'none') => {
+    const updated = userOverrides.filter(o => o.menu_id !== menuId);
+    if (type !== 'none') {
+      updated.push({ menu_id: menuId, permission_type: type });
+    }
+    setUserOverrides(updated);
+  };
+
+  const handleSavePermissions = async () => {
+    if (!selectedUserForPerms) return;
+    setPermsLoading(true);
+    try {
+      await updateUserPermissions(selectedUserForPerms.user_id, userOverrides);
+      setShowPermsModal(false);
+      alert('User permission overrides updated successfully');
+    } catch (err: any) {
+      alert('Error updating user permissions: ' + err.message);
+    } finally {
+      setPermsLoading(false);
+    }
+  };
+
+  // Filter Logic
+  const filteredUsers = users.filter(user => {
+    const matchesSearch =
+      (user.user_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.fname?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (user.lname?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+
+    const matchesRole = filterRole ? String(user.role_id) === filterRole : true;
+    const userStatus = (user.status == 1 || user.status === '1') ? '1' : '0';
+    const matchesStatus = filterStatus ? userStatus === filterStatus : true;
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  // Pagination Logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole, filterStatus]);
+
+  if (loading && users.length === 0) return (
+    <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+      <Spinner animation="border" variant="primary" />
+    </div>
+  );
 
   return (
-    <div className="container-fluid">
+    <div className="container-fluid mb-5">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 className="h3 mb-0 text-gray-800">All Users</h1>
-        {/* Optional: Add "Add New User" button */}
-        {/* <a href="/users/new" className="btn btn-primary btn-sm">
-          <i className="fas fa-user-plus"></i> Add New User
-        </a> */}
+        <h1 className="h3 mb-0 text-gray-800">User Management</h1>
+        <Link to="/users/add" className="btn btn-primary btn-sm shadow-sm">
+          <i className="fas fa-user-plus fa-sm text-white-50 mr-2"></i> Add New User
+        </Link>
       </div>
 
-      <div className="card shadow mb-4">
-        <div className="card-header py-3">
-          <h6 className="m-0 font-weight-bold text-primary">User List</h6>
+      {/* Filters */}
+      <div className="card shadow mb-4 border-0">
+        <div className="card-header py-3 bg-white border-bottom">
+          <h6 className="m-0 font-weight-bold text-primary">Filter & Search</h6>
         </div>
         <div className="card-body">
+          <div className="row g-3">
+            <div className="col-md-4">
+              <label className="form-label text-gray-600 small">Search</label>
+              <div className="input-group">
+                <span className="input-group-text bg-light border-end-0">
+                  <i className="fas fa-search text-gray-400"></i>
+                </span>
+                <input
+                  type="text"
+                  className="form-control border-start-0 ps-0"
+                  placeholder="Search by name, username, email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label text-gray-600 small">Role</label>
+              <select
+                className="form-select"
+                value={filterRole}
+                onChange={(e) => setFilterRole(e.target.value)}
+              >
+                <option value="">All Roles</option>
+                {roles.map(role => (
+                  <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-4">
+              <label className="form-label text-gray-600 small">Status</label>
+              <select
+                className="form-select"
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+              >
+                <option value="">All Statuses</option>
+                <option value="1">Active</option>
+                <option value="0">Inactive</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card shadow mb-4 border-0">
+        <div className="card-header py-3 bg-white border-bottom">
+          <h6 className="m-0 font-weight-bold text-primary">User List <span className="text-gray-500 font-weight-normal ml-2">({filteredUsers.length} users)</span></h6>
+        </div>
+        <div className="card-body p-0 text-gray-800">
           <div className="table-responsive">
-            <table className="table table-bordered" width="100%" cellSpacing={0}>
-              <thead>
+            <table className="table table-hover align-middle mb-0">
+              <thead className="bg-light text-gray-600">
                 <tr>
-                  <th>#</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Actions</th>
+                  <th className="px-4 py-3 border-0">ID</th>
+                  <th className="px-4 py-3 border-0">User</th>
+                  <th className="px-4 py-3 border-0">Role</th>
+                  <th className="px-4 py-3 border-0 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.role}</td>
-                    <td>
-                      <span className={`badge ${user.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                        {user.status}
+                {currentUsers.map((user) => (
+                  <tr key={user.user_id}>
+                    <td className="px-4">{user.user_id}</td>
+                    <td className="px-4">
+                      <div className="d-flex align-items-center">
+                        <div className="rounded-circle bg-gray-100 d-flex align-items-center justify-content-center mr-3" style={{ width: 40, height: 40 }}>
+                          <i className="fas fa-user text-gray-400"></i>
+                        </div>
+                        <div>
+                          <div className="font-weight-bold">{user.name || `${user.fname || ''} ${user.lname || ''}`}</div>
+                          <div className="text-muted small">{user.email} | @{user.user_name}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4">
+                      <span className="badge bg-light text-primary border border-primary-subtle px-2 py-1">
+                        {user.role_name}
                       </span>
                     </td>
-                    <td>
-                      {/* Replace with real navigation/actions */}
-                      <a href={`/users/profile/${user.id}`} className="btn btn-sm btn-info me-2">
-                        <i className="fas fa-user"></i> View
-                      </a>
-                      <a href={`/users/edit/${user.id}`} className="btn btn-sm btn-warning">
-                        <i className="fas fa-edit"></i> Edit
-                      </a>
+                    <td className="px-4 text-center">
+                      <div className="btn-group" role="group">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => handleOpenPerms(user)}
+                          title="Individual Menu Overrides"
+                        >
+                          <i className="fas fa-key mr-1"></i> Permissions
+                        </button>
+                        <button
+                          className={`btn btn-sm ${user.status == 1 ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                          onClick={() => handleStatusChange(user.user_id, user.status)}
+                          title={user.status == 1 ? 'Deactivate' : 'Activate'}
+                        >
+                          <i className={`fas ${user.status == 1 ? 'fa-ban' : 'fa-check'}`}></i>
+                        </button>
+                        <Link
+                          to={`/users/edit/${user.user_id}`}
+                          className="btn btn-sm btn-outline-info"
+                          title="Edit"
+                        >
+                          <i className="fas fa-edit"></i>
+                        </Link>
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          onClick={() => handleDelete(user.user_id)}
+                          title="Delete"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center">
-                      No users found.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
+        {filteredUsers.length > 0 && (
+          <div className="card-footer bg-white border-top py-3">
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredUsers.length}
+              itemsPerPage={itemsPerPage}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
+
+      <Modal show={showPermsModal} onHide={() => setShowPermsModal(false)} size="lg" scrollable>
+        <Modal.Header closeButton className="bg-light">
+          <Modal.Title>
+            User Permission Overrides: <span className="text-primary">{selectedUserForPerms?.name || selectedUserForPerms?.user_name}</span>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {permsLoading ? (
+            <div className="text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-2">Loading...</p>
+            </div>
+          ) : (
+            <div className="p-2">
+              <p className="text-muted small mb-4">
+                These settings override the role-based permissions for this specific user.
+                <strong> Allow</strong> grants access, <strong>Deny</strong> explicitly blocks access, and <strong>None</strong> inherits from the user's role.
+              </p>
+              <div className="table-responsive">
+                <table className="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th>Menu Item</th>
+                      <th className="text-center" style={{ width: '30%' }}>Override</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allMenus.map(menu => {
+                      const override = userOverrides.find(o => o.menu_id === menu.id);
+                      const indent = menu.parent_id ? 'pl-4' : '';
+                      const isSubChild = menu.parent_id && allMenus.find(m => m.id === menu.parent_id)?.parent_id;
+
+                      return (
+                        <tr key={menu.id}>
+                          <td className={`${indent} ${isSubChild ? 'pl-5' : ''}`}>
+                            <div className="d-flex align-items-center">
+                              <div
+                                className="mr-2 text-secondary small"
+                                dangerouslySetInnerHTML={{ __html: menu.icon || '' }}
+                              />
+                              <span className={menu.is_section ? 'font-weight-bold text-uppercase x-small' : ''}>{menu.title}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="d-flex justify-content-center gap-1">
+                              <button
+                                className={`btn btn-xs ${override?.permission_type === 'allow' ? 'btn-success' : 'btn-outline-success'}`}
+                                onClick={() => handleSetOverride(menu.id, 'allow')}
+                                style={{ fontSize: '10px' }}
+                              >Allow</button>
+                              <button
+                                className={`btn btn-xs ${override?.permission_type === 'deny' ? 'btn-danger' : 'btn-outline-danger'}`}
+                                onClick={() => handleSetOverride(menu.id, 'deny')}
+                                style={{ fontSize: '10px' }}
+                              >Deny</button>
+                              <button
+                                className={`btn btn-xs ${!override ? 'btn-secondary' : 'btn-outline-secondary'}`}
+                                onClick={() => handleSetOverride(menu.id, 'none')}
+                                style={{ fontSize: '10px' }}
+                              >None</button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer className="bg-light">
+          <Button variant="secondary" onClick={() => setShowPermsModal(false)}>Cancel</Button>
+          <Button variant="primary" onClick={handleSavePermissions} disabled={permsLoading}>
+            Save Overrides
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 };

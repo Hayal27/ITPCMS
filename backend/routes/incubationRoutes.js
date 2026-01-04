@@ -21,16 +21,19 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const verifyToken = require('../middleware/verifyToken');
+const { restrictTo } = require('../middleware/roleMiddleware');
+
 // Programs
 router.get('/programs', incubationController.getPrograms);
-router.post('/programs', incubationController.createProgram);
-router.put('/programs/:id', incubationController.updateProgram);
-router.delete('/programs/:id', incubationController.deleteProgram);
+router.post('/programs', verifyToken, restrictTo(1), incubationController.createProgram);
+router.put('/programs/:id', verifyToken, restrictTo(1), incubationController.updateProgram);
+router.delete('/programs/:id', verifyToken, restrictTo(1), incubationController.deleteProgram);
 
 // Success Stories
 router.get('/stories', incubationController.getSuccessStories);
-router.post('/stories', upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.createSuccessStory);
-router.put('/stories/:id', upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.updateSuccessStory);
-router.delete('/stories/:id', incubationController.deleteSuccessStory);
+router.post('/stories', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.createSuccessStory);
+router.put('/stories/:id', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.updateSuccessStory);
+router.delete('/stories/:id', verifyToken, restrictTo(1), incubationController.deleteSuccessStory);
 
 module.exports = router;

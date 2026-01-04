@@ -1,94 +1,320 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../Auth/AuthContext";
+import React, { useState, FormEvent, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../Auth/AuthContext';
+import validator from 'validator';
+import {
+    EyeIcon,
+    EyeSlashIcon,
+    LockClosedIcon,
+    UserIcon,
+    ShieldCheckIcon,
+    ExclamationTriangleIcon,
+    ArrowRightIcon,
+    KeyIcon,
+    EnvelopeIcon,
+    DevicePhoneMobileIcon,
+    CpuChipIcon,
+    CloudIcon,
+    WifiIcon
+} from '@heroicons/react/24/outline';
+import {
+    ShieldCheckIcon as ShieldSolidIcon,
+    LockClosedIcon as LockSolidIcon,
+    CheckCircleIcon as CheckSolidIcon,
+    ExclamationTriangleIcon as WarningSolidIcon
+} from '@heroicons/react/24/solid';
 
-const LoginPage = () => {
-    const [formData, setFormData] = useState({
-        username: "",
-        password: ""
-    });
-    const [localLoading, setLocalLoading] = useState(false);
-    const [message, setMessage] = useState("");
-    const [messageType, setMessageType] = useState("error"); // error, success, warning
+const MAX_ATTEMPTS = 5;
+const ATTEMPT_COUNT_KEY = 'login_attempt_count';
+const LAST_ATTEMPT_TIME_KEY = 'last_login_attempt';
+const ATTEMPT_RESET_TIME = 15 * 60 * 1000; // 15 minutes
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5005";
+
+const LoginPage: React.FC = () => {
+    // Form state
+    const [userName, setUserName] = useState('');
+    const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
+    const [error, setError] = useState<string | null>(null);
+    const [rememberMe, setRememberMe] = useState(false);
+
+    // Forgot password modal state
+    const [showForgotModal, setShowForgotModal] = useState(false);
+    const [forgotEmail, setForgotEmail] = useState('');
+    const [otp, setOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [forgotMsg, setForgotMsg] = useState<string | null>(null);
+    const [forgotLoading, setForgotLoading] = useState(false);
+    const [forgotStep, setForgotStep] = useState<'email' | 'otp'>('email');
+    const [isRedeemingOnly, setIsRedeemingOnly] = useState(false);
+
+    // Security state
+    const [attemptCount, setAttemptCount] = useState(0);
+    const [lockMessage, setLockMessage] = useState<string | null>(null);
+    const [isAccountLocked, setIsAccountLocked] = useState(false);
+
+    // UI state
     const [isFormFocused, setIsFormFocused] = useState(false);
+    const [currentTime, setCurrentTime] = useState(new Date());
 
-    // Get login function and loading state from AuthContext
-    const { login, isLoading: contextLoading } = useAuth();
+    const { login, isLoading } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from?.pathname || "/";
 
-    // Combine loading states
-    const isLoading = localLoading || contextLoading;
-
-    // Update time every second
+    // Update time every second for dynamic display
     useEffect(() => {
         const timer = setInterval(() => setCurrentTime(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-        // Clear message when user starts typing
-        if (message) {
-            setMessage("");
-            setMessageType("error");
+    // Initialize attempt count from localStorage
+    useEffect(() => {
+        const storedAttemptCount = localStorage.getItem(ATTEMPT_COUNT_KEY);
+        const lastAttemptTime = localStorage.getItem(LAST_ATTEMPT_TIME_KEY);
+
+        if (storedAttemptCount && lastAttemptTime) {
+            const timeSinceLastAttempt = Date.now() - parseInt(lastAttemptTime);
+
+            if (timeSinceLastAttempt > ATTEMPT_RESET_TIME) {
+                localStorage.removeItem(ATTEMPT_COUNT_KEY);
+                localStorage.removeItem(LAST_ATTEMPT_TIME_KEY);
+                setAttemptCount(0);
+            } else {
+                const count = parseInt(storedAttemptCount);
+                setAttemptCount(count);
+
+                if (count >= MAX_ATTEMPTS) {
+                    setIsAccountLocked(true);
+                    setLockMessage(`Access restricted due to security policy. Please use the redemption code.`);
+                } else {
+                    const remainingAttempts = MAX_ATTEMPTS - count;
+                    setLockMessage(`Security Warning: ${count} of ${MAX_ATTEMPTS} attempts used. ${remainingAttempts} attempt(s) remaining.`);
+                }
+            }
         }
+    }, []);
+
+    const isPasswordStrong = (pwd: string) => {
+        return validator.isStrongPassword(pwd, {
+            minLength: 8,
+            minLowercase: 1,
+            minUppercase: 1,
+            minNumbers: 1,
+            minSymbols: 1,
+        });
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (isAccountLocked) {
+            setError("Account is temporarily locked due to too many failed attempts.");
+            return;
+        }
+        setError(null);
 
-        if (!formData.username || !formData.password) {
-            setMessage("Please enter both username and password");
-            setMessageType("warning");
+        // Allow username or email, so less strict validation here on username format unless it's strictly email
+        if (!userName) {
+            setError("Username/Email is required.");
             return;
         }
 
-        setLocalLoading(true);
-        setMessage("");
-        setMessageType("error");
-
         try {
-            // Call the login function from AuthContext which handles its own axios and state
             const result = await login({
-                user_name: formData.username,
-                pass: formData.password
+                user_name: userName,
+                pass: password
             });
 
             if (result.success) {
-                setMessage("Login successful! Redirecting...");
-                setMessageType("success");
-
-                // Redirect after short delay
-                setTimeout(() => {
-                    navigate("/");
-                }, 1000);
+                setAttemptCount(0);
+                setLockMessage(null);
+                setError(null);
+                setIsAccountLocked(false);
+                localStorage.removeItem(ATTEMPT_COUNT_KEY);
+                localStorage.removeItem(LAST_ATTEMPT_TIME_KEY);
+                navigate(from, { replace: true });
             } else {
-                setMessage(result.message || "Login failed");
-                setMessageType("error");
+                const errorMessage = result.message || "Invalid username or password.";
+                setError(errorMessage);
+
+                const isServerLocked = result.locked ||
+                    errorMessage.toLowerCase().includes("locked") ||
+                    errorMessage.toLowerCase().includes("suspended") ||
+                    errorMessage.toLowerCase().includes("blocked") ||
+                    errorMessage.toLowerCase().includes("ip");
+
+                if (isServerLocked) {
+                    setIsAccountLocked(true);
+                    setLockMessage(errorMessage);
+                    // Sync local state as well to prevent "4 of 5" warning on reload
+                    localStorage.setItem(ATTEMPT_COUNT_KEY, MAX_ATTEMPTS.toString());
+                    localStorage.setItem(LAST_ATTEMPT_TIME_KEY, Date.now().toString());
+                    setAttemptCount(MAX_ATTEMPTS);
+                } else {
+                    // Update local attempt count
+                    const newAttemptCount = attemptCount + 1;
+                    setAttemptCount(newAttemptCount);
+                    localStorage.setItem(ATTEMPT_COUNT_KEY, newAttemptCount.toString());
+                    localStorage.setItem(LAST_ATTEMPT_TIME_KEY, Date.now().toString());
+
+                    if (newAttemptCount >= MAX_ATTEMPTS) {
+                        setIsAccountLocked(true);
+                        setLockMessage(`Maximum login attempts reached (${MAX_ATTEMPTS}). Account temporarily locked. Please try again later.`);
+                    } else {
+                        const remainingAttempts = MAX_ATTEMPTS - newAttemptCount;
+                        setLockMessage(`Login attempt ${newAttemptCount} of ${MAX_ATTEMPTS}. ${remainingAttempts} attempt(s) remaining before account lock.`);
+                    }
+                }
             }
-        } catch (error) {
-            console.error("Login error:", error);
-            setMessage("Login failed. Please check your connection and try again.");
-            setMessageType("error");
-        } finally {
-            setLocalLoading(false);
+        } catch (loginError) {
+            console.error('Login error:', loginError);
+            setError("An unexpected error occurred. Please try again.");
         }
     };
 
+    const handleForgotRequest = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setForgotMsg(null);
+        setForgotLoading(true);
+
+        if (!forgotEmail) {
+            setForgotMsg('Please enter your email or username.');
+            setForgotLoading(false);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: forgotEmail })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setForgotMsg('OTP sent to your email. Please check your inbox.');
+                setForgotStep('otp');
+            } else {
+                setForgotMsg(data.message || 'Failed to send OTP.');
+            }
+        } catch (err: any) {
+            setForgotMsg("Network error: " + (err.message || 'Failed to send OTP.'));
+        }
+        setForgotLoading(false);
+    };
+
+    const handleRedeemOnly = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setForgotMsg(null);
+        setForgotLoading(true);
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/redeem-account`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: forgotEmail, code: otp })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setForgotMsg('Account unlocked successfully! You can now log in.');
+                setIsAccountLocked(false);
+                setAttemptCount(0);
+                setLockMessage(null);
+                localStorage.removeItem(ATTEMPT_COUNT_KEY);
+                localStorage.removeItem(LAST_ATTEMPT_TIME_KEY);
+
+                setTimeout(() => {
+                    setShowForgotModal(false);
+                    setForgotStep('email');
+                    setForgotEmail('');
+                    setOtp('');
+                    setIsRedeemingOnly(false);
+                    setForgotMsg(null);
+                }, 2000);
+            } else {
+                setForgotMsg(data.message || 'Verification failed.');
+            }
+        } catch (err: any) {
+            setForgotMsg("Error: " + (err.message || 'Failed to unlock.'));
+        }
+        setForgotLoading(false);
+    };
+
+    const handleForgotReset = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setForgotMsg(null);
+        setForgotLoading(true);
+
+        if (!validator.isLength(otp, { min: 4, max: 8 })) {
+            setForgotMsg('Invalid OTP format.');
+            setForgotLoading(false);
+            return;
+        }
+        if (!isPasswordStrong(newPassword)) {
+            setForgotMsg('New password must be strong (8+ chars, uppercase, lowercase, number, symbol).');
+            setForgotLoading(false);
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE_URL}/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: forgotEmail,
+                    code: otp,
+                    newPassword: newPassword
+                })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                setForgotMsg('Password reset successful. Account unlocked.');
+                // Clear local lock states
+                setIsAccountLocked(false);
+                setAttemptCount(0);
+                setLockMessage(null);
+                localStorage.removeItem(ATTEMPT_COUNT_KEY);
+                localStorage.removeItem(LAST_ATTEMPT_TIME_KEY);
+
+                setTimeout(() => {
+                    setShowForgotModal(false);
+                    setForgotStep('email');
+                    setForgotEmail('');
+                    setOtp('');
+                    setNewPassword('');
+                    setForgotMsg(null);
+                }, 2000);
+            } else {
+                setForgotMsg(data.message || 'Failed to reset password.');
+            }
+        } catch (err: any) {
+            setForgotMsg("Network error: " + (err.message || 'Failed to reset password.'));
+        }
+
+        setForgotLoading(false);
+    };
+
+    const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setUserName(e.target.value);
+        if (error) setError(null);
+    };
+
+    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setPassword(e.target.value);
+        if (error) setError(null);
+    };
+
     return (
-        <div className="h-screen w-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden font-sans flex items-center justify-center p-4">
+        <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 relative overflow-hidden">
             {/* Animated Background Elements */}
-            <div className="absolute inset-0 z-0 pointer-events-none">
+            <div className="absolute inset-0">
+                {/* Floating geometric shapes */}
                 <div className="absolute top-20 left-20 w-32 h-32 bg-blue-500/10 rounded-full blur-xl animate-pulse"></div>
                 <div className="absolute top-40 right-32 w-24 h-24 bg-purple-500/10 rounded-full blur-lg animate-bounce"></div>
-                <div className="absolute bottom-32 left-40 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl animate-pulse"></div>
-                <div className="absolute bottom-20 right-20 w-28 h-28 bg-cyan-500/10 rounded-full blur-xl animate-bounce"></div>
+                <div className="absolute bottom-32 left-40 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl animate-pulse delay-1000"></div>
+                <div className="absolute bottom-20 right-20 w-28 h-28 bg-cyan-500/10 rounded-full blur-xl animate-bounce delay-500"></div>
 
                 {/* Grid pattern overlay */}
                 <div className="absolute inset-0 opacity-20">
@@ -99,257 +325,510 @@ const LoginPage = () => {
                 </div>
             </div>
 
-            {/* Main Central Card */}
-            <div className={`relative z-10 w-full max-w-5xl h-auto max-h-[90vh] flex bg-white/10 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 overflow-hidden transition-all duration-500 ${isFormFocused ? 'shadow-blue-500/20' : ''}`}>
-
-                {/* Left Side - Branding & Info (Compact) */}
-                <div className="hidden lg:flex w-5/12 bg-black/20 flex-col justify-between p-8 border-r border-white/10">
-                    {/* Top Branding - Fixed Height Zone */}
-                    <div>
+            {/* Main Content */}
+            <div className="relative z-10 h-full flex">
+                {/* Left Side - Branding & Info */}
+                <div className="hidden lg:flex lg:w-1/2 flex-col justify-center px-8 xl:px-16 h-full">
+                    {/* Company Branding */}
+                    <div className="mb-8">
                         <div className="flex items-center space-x-3 mb-6">
-                            <div className="relative flex-shrink-0">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-60 animate-pulse"></div>
-                                <div className="relative w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl flex items-center justify-center shadow-xl">
-                                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
+                            <div className="relative">
+                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur-lg opacity-60 animate-pulse"></div>
+                                <div className="relative w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-700 rounded-xl flex items-center justify-center shadow-2xl">
+                                    <CpuChipIcon className="w-8 h-8 text-white" />
                                 </div>
                             </div>
                             <div>
-                                <h1 className="text-2xl font-black bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+                                <h1 className="text-3xl font-black bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
                                     ITPC-CMS
                                 </h1>
-                                <p className="text-slate-400 font-medium text-xs">Enterprise Solution</p>
+                                <p className="text-slate-400 font-medium text-sm">Content Management System</p>
                             </div>
                         </div>
 
-                        <div className="mb-6">
-                            <h2 className="text-xl font-bold text-white mb-2 leading-snug">
-                                <span className="text-blue-200">Welcome to IT Park</span>
-                                <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent transform scale-y-100">
-                                    Content Management
-                                </span>
-                            </h2>
-                            <p className="text-sm text-slate-300 leading-relaxed">
-                                Empower your workspace with resilient tools for a flourishing digital ecosystem.
-                            </p>
-                        </div>
+                        <h2 className="text-2xl xl:text-3xl font-bold text-white mb-4 leading-tight">
+                            Welcome to
+                            <span className="block bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                                Ethiopian IT Park
+                            </span>
+                        </h2>
+
+                        <p className="text-lg text-slate-300 mb-6 leading-relaxed">
+                            Secure, scalable, and intelligent solutions for the Ethiopian technology hub.
+                        </p>
                     </div>
 
-                    {/* Middle Features - Condensed */}
-                    <div className="space-y-4 mb-4">
-                        <div className="flex items-center space-x-3 group">
-                            <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-lg flex items-center justify-center">
-                                <svg className="w-4 h-4 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                                </svg>
+                    {/* Feature Highlights */}
+                    <div className="space-y-4">
+                        <div className="flex items-center space-x-4 group">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <ShieldSolidIcon className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold text-xs">Content Management</h3>
-                                <p className="text-slate-400 text-[10px] leading-tight">News, events, and page oversight.</p>
+                                <h3 className="text-white font-semibold text-sm">Enterprise Security</h3>
+                                <p className="text-slate-400 text-xs">Multi-layer authentication & encryption</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-3 group">
-                            <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-500/20 to-purple-600/20 border border-purple-500/30 rounded-lg flex items-center justify-center">
-                                <svg className="w-4 h-4 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                                </svg>
+                        <div className="flex items-center space-x-4 group">
+                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <CloudIcon className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold text-xs">User Administration</h3>
-                                <p className="text-slate-400 text-[10px] leading-tight">Access controls and roles.</p>
+                                <h3 className="text-white font-semibold text-sm">Cloud-Native Platform</h3>
+                                <p className="text-slate-400 text-xs">Scalable infrastructure & real-time sync</p>
                             </div>
                         </div>
 
-                        <div className="flex items-center space-x-3 group">
-                            <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-indigo-500/20 to-indigo-600/20 border border-indigo-500/30 rounded-lg flex items-center justify-center">
-                                <svg className="w-4 h-4 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                </svg>
+                        <div className="flex items-center space-x-4 group">
+                            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                                <CpuChipIcon className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h3 className="text-white font-semibold text-xs">Analytics</h3>
-                                <p className="text-slate-400 text-[10px] leading-tight">Performance tracking.</p>
+                                <h3 className="text-white font-semibold text-sm">AI-Powered Analytics</h3>
+                                <p className="text-slate-400 text-xs">Intelligent insights & predictive modeling</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Bottom Status */}
-                    <div className="p-3 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center justify-between mb-1">
-                            <h4 className="text-white font-semibold text-xs flex items-center">
-                                <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse mr-2"></div>
-                                System Online
+                    {/* System Status */}
+                    <div className="mt-8 p-4 bg-slate-800/30 backdrop-blur-sm rounded-xl border border-slate-700/50">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-white font-semibold flex items-center text-sm">
+                                <WifiIcon className="w-4 h-4 mr-2 text-green-400" />
+                                System Status
                             </h4>
-                            <span className="text-slate-400 text-[10px] font-mono">v1.0.4</span>
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                                <span className="text-green-400 text-sm font-medium">Online</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between items-center text-[10px] text-slate-500">
-                            <span>ENV: {import.meta.env.MODE}</span>
-                            <span>RESP: 12ms</span>
+                        <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Uptime:</span>
+                                <span className="text-white font-mono">99.9%</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Response:</span>
+                                <span className="text-white font-mono">12ms</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Users:</span>
+                                <span className="text-white font-mono">2,847</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-slate-400">Load:</span>
+                                <span className="text-white font-mono">23%</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Right Side - Login Form - Fully Centered & Compact */}
-                <div className="w-full lg:w-7/12 flex items-center justify-center px-8 py-8 relative">
-
-                    {/* Decorative background shape in form side */}
-                    <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
-
-                    <div className="w-full max-w-sm relative z-10">
-                        {/* Header */}
-                        <div className="text-center mb-6">
-                            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-3 shadow-lg transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
+                {/* Right Side - Login Form */}
+                <div className="w-full lg:w-1/2 flex items-center justify-center px-4 py-6 h-full">
+                    <div className="w-full max-w-sm">
+                        {/* Login Card */}
+                        <div className={`bg-slate-900/40 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/20 p-6 transition-all duration-500 ${isFormFocused ? 'scale-105 shadow-3xl' : ''}`}>
+                            {/* Header */}
+                            <div className="text-center mb-6">
+                                <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl mb-3 shadow-lg">
+                                    <LockSolidIcon className="w-6 h-6 text-white" />
+                                </div>
+                                <h2 className="text-xl font-bold text-white mb-1">Secure Access</h2>
+                                <p className="text-slate-300 text-sm">Sign in to your enterprise account</p>
+                                <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                                    {currentTime.toLocaleString()}
+                                </div>
                             </div>
-                            <h2 className="text-xl font-bold text-white mb-1">Secure Access</h2>
-                            <p className="text-slate-300 text-sm">Sign in to your account</p>
-                        </div>
 
-                        {/* Login Form */}
-                        <form onSubmit={handleSubmit} className="space-y-4">
-
-                            {/* Status Message */}
-                            {message && (
-                                <div className={`p-3 rounded-lg backdrop-blur-sm border ${messageType === 'success' ? 'bg-green-900/30 border-green-500/50' :
-                                    messageType === 'warning' ? 'bg-yellow-900/30 border-yellow-500/50' :
-                                        'bg-red-900/30 border-red-500/50'
-                                    }`}>
-                                    <div className="flex items-center space-x-2">
-                                        <svg className={`w-4 h-4 flex-shrink-0 ${messageType === 'success' ? 'text-green-400' :
-                                            messageType === 'warning' ? 'text-yellow-400' :
-                                                'text-red-400'
-                                            }`} fill="currentColor" viewBox="0 0 20 20">
-                                            {messageType === 'success' && (
-                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                            )}
-                                            {(messageType === 'error' || messageType === 'warning') && (
-                                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                            )}
-                                        </svg>
-                                        <div className="flex-1">
-                                            <p className={`text-xs font-medium ${messageType === 'success' ? 'text-green-300' :
-                                                messageType === 'warning' ? 'text-yellow-300' :
-                                                    'text-red-300'
-                                                }`}>{message}</p>
+                            {/* Error Messages */}
+                            {error && (
+                                <div className="mb-6 p-4 bg-red-900/30 border border-red-500/50 rounded-xl backdrop-blur-sm">
+                                    <div className="flex items-center space-x-3">
+                                        <WarningSolidIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+                                        <div>
+                                            <p className="text-red-300 font-medium">Login Failed</p>
+                                            <p className="text-red-200 text-sm">{error}</p>
                                         </div>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Username Field */}
-                            <div>
-                                <label htmlFor="username" className="block text-xs font-semibold text-slate-300 mb-1 ml-1">
-                                    Username
-                                </label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-4 w-4 text-slate-400 group-focus-within:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
+                            {/* Lock Warning */}
+                            {lockMessage && (
+                                <div className={`mb-6 p-4 rounded-xl backdrop-blur-sm border ${lockMessage.toLowerCase().includes("locked") ||
+                                    lockMessage.toLowerCase().includes("maximum") ||
+                                    isAccountLocked
+                                    ? "bg-red-900/30 border-red-500/50"
+                                    : "bg-yellow-900/30 border-yellow-500/50"
+                                    }`}>
+                                    <div className="flex items-center space-x-3">
+                                        {isAccountLocked ? (
+                                            <LockSolidIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+                                        ) : (
+                                            <ExclamationTriangleIcon className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+                                        )}
+                                        <div>
+                                            <p className={`font-medium ${isAccountLocked ? 'text-red-300' : 'text-yellow-300'}`}>
+                                                {isAccountLocked ? "Account Locked" : "Security Warning"}
+                                            </p>
+                                            <p className={`text-sm ${isAccountLocked ? 'text-red-200' : 'text-yellow-200'}`}>
+                                                {lockMessage}
+                                            </p>
+                                            {isAccountLocked && (
+                                                <div className="mt-4 pt-4 border-t border-red-500/20">
+                                                    <p className="text-[11px] text-red-300 mb-3 font-semibold uppercase tracking-wider">
+                                                        Redemption Required
+                                                    </p>
+                                                    <div className="flex flex-col space-y-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setIsRedeemingOnly(true);
+                                                                setForgotStep('otp');
+                                                                setShowForgotModal(true);
+                                                                setForgotEmail(userName);
+                                                                setForgotMsg("Use the redemption code sent to your email to unlock your account.");
+                                                            }}
+                                                            className="w-full py-2 bg-gradient-to-r from-red-600 to-orange-600 text-white text-xs font-bold rounded-lg shadow-lg hover:shadow-red-500/20 transition-all duration-300 flex items-center justify-center space-x-2"
+                                                        >
+                                                            <CheckSolidIcon className="w-4 h-4" />
+                                                            <span>Enter Redemption Code</span>
+                                                        </button>
+                                                        <p className="text-[10px] text-center text-red-400/80 italic">
+                                                            Check your registered email for the 6-digit code
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <input
-                                        id="username"
-                                        name="username"
-                                        type="text"
-                                        value={formData.username}
-                                        onChange={handleChange}
-                                        onFocus={() => setIsFormFocused(true)}
-                                        onBlur={() => setIsFormFocused(false)}
-                                        className="w-full pl-10 pr-4 py-3 bg-slate-800/50 border border-slate-600/50 focus:border-blue-500/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 text-sm"
-                                        placeholder="Enter your username"
-                                        autoComplete="username"
-                                        disabled={isLoading}
-                                        required
-                                    />
                                 </div>
-                            </div>
+                            )}
 
-                            {/* Password Field */}
-                            <div>
-                                <label htmlFor="password" className="block text-xs font-semibold text-slate-300 mb-1 ml-1">
-                                    Password
-                                </label>
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <svg className="h-4 w-4 text-slate-400 group-focus-within:text-blue-400 transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                        </svg>
+                            {/* Login Form */}
+                            <form onSubmit={handleSubmit} className="space-y-4">
+                                {/* Username Field */}
+                                <div>
+                                    <label htmlFor="username" className="block text-xs font-semibold text-slate-200 mb-1">
+                                        Email Address
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <UserIcon className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <input
+                                            id="username"
+                                            type="text"
+                                            autoComplete="username"
+                                            value={userName}
+                                            onChange={handleUsernameChange}
+                                            onFocus={() => setIsFormFocused(true)}
+                                            onBlur={() => setIsFormFocused(false)}
+                                            required
+                                            disabled={isLoading || isAccountLocked}
+                                            className="w-full pl-10 pr-3 py-3 bg-slate-800/50 border border-slate-600/50 focus:border-blue-500/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            placeholder="Enter your email address"
+                                        />
                                     </div>
-                                    <input
-                                        id="password"
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        value={formData.password}
-                                        onChange={handleChange}
-                                        onFocus={() => setIsFormFocused(true)}
-                                        onBlur={() => setIsFormFocused(false)}
-                                        className="w-full pl-10 pr-10 py-3 bg-slate-800/50 border border-slate-600/50 focus:border-blue-500/50 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 text-sm"
-                                        placeholder="Enter your password"
-                                        autoComplete="current-password"
-                                        disabled={isLoading}
-                                        required
-                                    />
+                                </div>
+
+                                {/* Password Field */}
+                                <div>
+                                    <label htmlFor="password" className="block text-xs font-semibold text-slate-200 mb-1">
+                                        Password
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <LockClosedIcon className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <input
+                                            id="password"
+                                            type={showPassword ? "text" : "password"}
+                                            autoComplete="current-password"
+                                            value={password}
+                                            onChange={handlePasswordChange}
+                                            onFocus={() => setIsFormFocused(true)}
+                                            onBlur={() => setIsFormFocused(false)}
+                                            required
+                                            disabled={isLoading || isAccountLocked}
+                                            className="w-full pl-10 pr-10 py-3 bg-slate-800/50 border border-slate-600/50 focus:border-blue-500/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                                            placeholder="Enter your password"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors duration-200"
+                                            disabled={isLoading || isAccountLocked}
+                                        >
+                                            {showPassword ? (
+                                                <EyeSlashIcon className="h-4 w-4" />
+                                            ) : (
+                                                <EyeIcon className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Remember Me & Forgot Password */}
+                                <div className="flex items-center justify-between">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={(e) => setRememberMe(e.target.checked)}
+                                            disabled={isLoading || isAccountLocked}
+                                            className="w-3 h-3 text-blue-600 bg-slate-800/50 border-slate-600/50 rounded focus:ring-blue-500/20 focus:ring-2 disabled:opacity-50"
+                                        />
+                                        <span className="text-xs text-slate-300">Remember me</span>
+                                    </label>
                                     <button
                                         type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors duration-200"
-                                        disabled={isLoading}
+                                        onClick={() => setShowForgotModal(true)}
+                                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 font-medium"
                                     >
-                                        {showPassword ? (
-                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                            </svg>
-                                        ) : (
-                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        )}
+                                        Forgot password?
                                     </button>
                                 </div>
-                            </div>
 
-                            {/* Login Button */}
-                            <button
-                                type="submit"
-                                disabled={isLoading}
-                                className="w-full py-3 px-6 rounded-xl font-bold text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 transition-all duration-300 transform hover:translate-y-[-1px] active:scale-[0.98] shadow-lg hover:shadow-blue-500/25 disabled:opacity-50 disabled:cursor-not-allowed text-sm mt-2"
-                            >
-                                {isLoading ? (
-                                    <div className="flex items-center justify-center space-x-2">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                        <span>Authenticating...</span>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-center space-x-2">
-                                        <span>Log In</span>
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                        </svg>
-                                    </div>
-                                )}
-                            </button>
+                                {/* Submit Button */}
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || isAccountLocked}
+                                    className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm ${isAccountLocked
+                                        ? 'bg-gradient-to-r from-red-600 to-red-700'
+                                        : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                                        }`}
+                                >
+                                    {isLoading ? (
+                                        <div className="flex items-center justify-center space-x-2">
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            <span>Authenticating...</span>
+                                        </div>
+                                    ) : isAccountLocked ? (
+                                        <div className="flex items-center justify-center space-x-2">
+                                            <LockSolidIcon className="w-4 h-4" />
+                                            <span>Account Locked</span>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-center space-x-2">
+                                            <span>Sign In</span>
+                                            <ArrowRightIcon className="w-4 h-4" />
+                                        </div>
+                                    )}
+                                </button>
+                            </form>
 
-                            {/* Links & Footer in One */}
-                            <div className="flex flex-col items-center justify-between space-y-4 mt-6 border-t border-white/5 pt-4">
-                                <a href="/itsupport" className="text-xs text-blue-400 hover:text-blue-300 transition-colors flex items-center">
-                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                                    Contact IT Support
-                                </a>
-
-                                <div className="text-[10px] text-slate-500 font-mono text-center">
-                                    <div>{currentTime.toLocaleTimeString()}</div>
-                                    <div>© 2024 ITPC-CMS</div>
+                            {/* Security Notice */}
+                            <div className="mt-4 p-3 bg-slate-800/30 rounded-xl border border-slate-700/50">
+                                <div className="flex items-center space-x-2 mb-1">
+                                    <ShieldCheckIcon className="w-3 h-3 text-green-400" />
+                                    <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">Security Notice</span>
                                 </div>
+                                <p className="text-[10px] text-slate-400 leading-relaxed">
+                                    This is a secure enterprise system. All activities are monitored and logged.
+                                </p>
                             </div>
-                        </form>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="text-center mt-4 text-slate-400 text-xs">
+                            <p>© 2024 Start Trip Enterprise Transport System</p>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Forgot Password Modal */}
+            {showForgotModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="w-full max-w-md bg-slate-800/95 backdrop-blur-2xl rounded-2xl shadow-2xl border border-slate-600/50 overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="p-4 border-b border-slate-700/50">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                                        <KeyIcon className="w-4 h-4 text-white" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-bold text-white">Password Recovery</h3>
+                                        <p className="text-xs text-slate-400">Secure account recovery process</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowForgotModal(false);
+                                        setForgotMsg(null);
+                                        setForgotEmail('');
+                                        setOtp('');
+                                        setNewPassword('');
+                                        setForgotStep('email');
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all duration-200"
+                                >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                                {isRedeemingOnly ? 'Unlock Account' : 'Recover Account'}
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowForgotModal(false);
+                                    setIsRedeemingOnly(false);
+                                }}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <CpuChipIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {forgotMsg && (
+                            <div className={`mb-4 p-3 rounded-xl border ${forgotMsg.toLowerCase().includes('successful')
+                                ? 'bg-green-900/30 border-green-500/50'
+                                : 'bg-blue-900/30 border-blue-500/50'
+                                }`}>
+                                <div className="flex items-center space-x-2">
+                                    {forgotMsg.toLowerCase().includes('successful') ? (
+                                        <CheckSolidIcon className="w-4 h-4 text-green-400 flex-shrink-0" />
+                                    ) : (
+                                        <EnvelopeIcon className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                    )}
+                                    <p className={`text-xs ${forgotMsg.toLowerCase().includes('successful') ? 'text-green-300' : 'text-blue-300'
+                                        }`}>
+                                        {forgotMsg}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {forgotStep === 'email' && (
+                            <form onSubmit={handleForgotRequest} className="space-y-4">
+                                <div>
+                                    <label htmlFor="forgot-email" className="block text-xs font-semibold text-slate-200 mb-1">
+                                        Email Address
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <EnvelopeIcon className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <input
+                                            id="forgot-email"
+                                            type="email"
+                                            value={forgotEmail}
+                                            onChange={(e) => setForgotEmail(e.target.value)}
+                                            required
+                                            disabled={forgotLoading}
+                                            className="w-full pl-10 pr-3 py-2.5 bg-slate-700/50 border border-slate-600/50 focus:border-blue-500/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50 text-sm"
+                                            placeholder="Enter your registered email"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex flex-col space-y-3">
+                                    <button
+                                        type="submit"
+                                        disabled={forgotLoading}
+                                        className="w-full py-2.5 px-6 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm"
+                                    >
+                                        {forgotLoading ? (
+                                            <div className="flex items-center justify-center space-x-2">
+                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                                <span>Sending OTP...</span>
+                                            </div>
+                                        ) : (
+                                            'Send Recovery Code'
+                                        )}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!forgotEmail) {
+                                                setForgotMsg("Please enter your email first.");
+                                                return;
+                                            }
+                                            setForgotStep('otp');
+                                            setForgotMsg("Use the code from the security alert email.");
+                                        }}
+                                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200"
+                                    >
+                                        Already have a code from system alert?
+                                    </button>
+                                </div>
+                            </form>
+                        )}
+
+                        {forgotStep === 'otp' && (
+                            <form onSubmit={isRedeemingOnly ? handleRedeemOnly : handleForgotReset} className="space-y-4">
+                                <div>
+                                    <label htmlFor="otp" className="block text-xs font-semibold text-slate-200 mb-1">
+                                        {isRedeemingOnly ? 'Redemption Code' : 'Verification Code'}
+                                    </label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <DevicePhoneMobileIcon className="h-4 w-4 text-slate-400" />
+                                        </div>
+                                        <input
+                                            id="otp"
+                                            type="text"
+                                            value={otp}
+                                            onChange={(e) => setOtp(e.target.value)}
+                                            required
+                                            disabled={forgotLoading}
+                                            className="w-full pl-10 pr-3 py-2.5 bg-slate-700/50 border border-slate-600/50 focus:border-blue-500/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50 text-sm"
+                                            placeholder="Enter 6-digit code"
+                                            maxLength={6}
+                                        />
+                                    </div>
+                                </div>
+
+                                {!isRedeemingOnly && (
+                                    <div>
+                                        <label htmlFor="new-password" className="block text-xs font-semibold text-slate-200 mb-1">
+                                            New Password
+                                        </label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <LockClosedIcon className="h-4 w-4 text-slate-400" />
+                                            </div>
+                                            <input
+                                                id="new-password"
+                                                type="password"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                                required
+                                                disabled={forgotLoading}
+                                                className="w-full pl-10 pr-3 py-2.5 bg-slate-700/50 border border-slate-600/50 focus:border-blue-500/50 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 disabled:opacity-50 text-sm"
+                                                placeholder="Enter new secure password"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={forgotLoading}
+                                    className={`w-full py-2.5 px-6 bg-gradient-to-r ${isRedeemingOnly ? 'from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' : 'from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'} text-white font-semibold rounded-lg transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none text-sm`}
+                                >
+                                    {forgotLoading ? (
+                                        <div className="flex items-center justify-center space-x-2">
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                            <span>{isRedeemingOnly ? 'Unblocking...' : 'Resetting...'}</span>
+                                        </div>
+                                    ) : (
+                                        isRedeemingOnly ? 'Unlock & Unblock Now' : 'Reset Password'
+                                    )}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

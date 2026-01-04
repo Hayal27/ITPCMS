@@ -1,0 +1,28 @@
+.manage-board-container {
+    background: var(--bs-body-bg);
+    min-height: 100vh;
+}
+
+.page-title {
+    font-weight: 700;
+    color: var(--bs-body-color);
+    margin-bottom: 0;
+}
+
+.table {
+    color: var(--bs-body-color);
+}
+
+.table thead {
+    background: var(--bs-secondary-bg);
+}
+
+.table tbody tr:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

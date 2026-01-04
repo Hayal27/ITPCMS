@@ -36,6 +36,8 @@ import PartnersInvestorsAdmin from './pages/content/PartnersInvestorsAdmin';
 import IncubationAdmin from './pages/content/IncubationAdmin';
 import TrainingAdmin from './pages/content/TrainingAdmin';
 import InvestmentStepsAdmin from './pages/content/InvestmentStepsAdmin';
+import ManageBoard from './pages/content/ManageBoard';
+import ManageWhoWeAre from './pages/content/ManageWhoWeAre';
 
 // Media (Protected)
 import MediaLibraryPage from './pages/media/MediaLibraryPage';
@@ -45,17 +47,19 @@ import CommentsPage from './pages/interaction/CommentsPage';
 import ManageFormsPage from './pages/interaction/forms/ManageFormsPage';
 import FormSubmissionsPage from './pages/interaction/forms/FormSubmissionsPage';
 import ContactMessagesPage from './pages/interaction/ContactMessagesPage';
+import InvestorInquiriesPage from './pages/interaction/InvestorInquiriesPage';
 
 // Appearance (Protected)
-import MenusPage from './pages/appearance/MenusPage';
+import MenuManagementPage from './pages/appearance/MenuManagementPage';
 import ThemeSettingsPage from './pages/appearance/ThemeSettingsPage';
 
 // Users (Protected)
 import AllUsersPage from './pages/users/AllUsersPage';
 import AddNewUserPage from './pages/users/AddNewUserPage';
+import EditUserPage from './pages/users/EditUserPage';
 import SubscribersAdmin from './pages/users/SubscribersAdmin';
-// import UserProfilePage from './pages/users/UserProfilePage'; // Assuming this page exists
-// import RolesPermissionsPage from './pages/users/RolesPermissionsPage'; // Assuming this page exists
+import RolesPermissionsPage from './pages/users/RolesPermissionsPage';
+import MenuPermissionsMatrix from './pages/users/MenuPermissionsMatrix';
 
 // // Plugins (Protected)
 // import InstalledPluginsPage from './pages/plugins/InstalledPluginsPage'; // Assuming this page exists
@@ -68,6 +72,7 @@ import SubscribersAdmin from './pages/users/SubscribersAdmin';
 
 // Settings (Protected)
 import GeneralSettingsPage from './pages/settings/GeneralSettingsPage';
+import AuditLogs from './pages/admin/AuditLogs';
 
 // --- Loading Component ---
 const LoadingIndicator: React.FC = () => (
@@ -121,7 +126,7 @@ const AppContent: React.FC = () => {
                         <Routes>
                             {
                                 // --- Routes based on Role ---
-                                userRoleId === 1 ? ( // Admin Routes (Role ID: 1)
+                                userRoleId === 1 || userRoleId === 4 ? ( // Admin Routes (Role ID: 1) or HR (Role ID: 4 - for dev access)
                                     <>
                                         <Route index element={<Navigate to="/dashboard/overview" replace />} /> {/* Updated index route */}
                                         <Route path="dashboard/overview" element={<DashboardOverviewPage />} /> {/* Explicit path */}
@@ -140,6 +145,8 @@ const AppContent: React.FC = () => {
                                         <Route path="content/incubation" element={<IncubationAdmin />} />
                                         <Route path="content/trainings" element={<TrainingAdmin />} />
                                         <Route path="content/investment-steps" element={<InvestmentStepsAdmin />} />
+                                        <Route path="content/board-members" element={<ManageBoard />} />
+                                        <Route path="content/who-we-are" element={<ManageWhoWeAre />} />
                                         <Route path="post/managePosts" element={<ManagePosts />} />
                                         <Route path="post/gallery" element={<MediaGalleryAdmin />} />
                                         <Route path="post/manageGallery" element={<ManageGallery />} />
@@ -150,15 +157,18 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         <Route path="users/subscribers" element={<SubscribersAdmin />} />
+                                        <Route path="users/roles" element={<RolesPermissionsPage />} />
+                                        <Route path="users/permissions-matrix" element={<MenuPermissionsMatrix />} />
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> Route for specific user profile */}
-                                        {/* <Route path="users/roles" element={<RolesPermissionsPage />} /> */}
 
                                         {/* <Route path="plugins/installed" element={<InstalledPluginsPage />} /> */} {/* Updated path */}
                                         {/* <Route path="plugins/add" element={<AddNewPluginPage />} /> */} {/* Updated path */}
@@ -167,6 +177,7 @@ const AppContent: React.FC = () => {
                                         {/* <Route path="tools/import-export" element={<ImportExportPage />} /> */}
 
                                         <Route path="settings/general" element={<GeneralSettingsPage />} />
+                                        <Route path="settings/audit-logs" element={<AuditLogs />} />
 
                                         {/* Add other admin-specific routes */}
                                         <Route path="*" element={<div className="alert alert-warning">Admin Page Not Found (404)</div>} />
@@ -192,12 +203,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Team Leader specific routes here */}
                                         {/* e.g., <Route path="plan/view" element={<TeamleaderViewOrgPlan />} /> */}
                                         {/* Grant access to some shared routes if needed */}
@@ -225,12 +238,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 2 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
@@ -256,12 +271,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 9 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
@@ -287,12 +304,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 3 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
@@ -318,12 +337,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 5 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
@@ -349,12 +370,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 6 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />
@@ -382,12 +405,14 @@ const AppContent: React.FC = () => {
                                         <Route path="interaction/forms/manage" element={<ManageFormsPage />} />
                                         <Route path="interaction/forms/submissions" element={<FormSubmissionsPage />} />
                                         <Route path="interaction/contact-messages" element={<ContactMessagesPage />} />
+                                        <Route path="interaction/investor-inquiries" element={<InvestorInquiriesPage />} />
 
-                                        <Route path="appearance/menus" element={<MenusPage />} />
+                                        <Route path="appearance/menus" element={<MenuManagementPage />} />
                                         <Route path="appearance/theme-settings" element={<ThemeSettingsPage />} /> {/* Updated path */}
 
                                         <Route path="users/all" element={<AllUsersPage />} /> {/* Updated path */}
                                         <Route path="users/add" element={<AddNewUserPage />} /> {/* Updated path */}
+                                        <Route path="users/edit/:userId" element={<EditUserPage />} />
                                         {/* Add Role 8 specific routes here */}
                                         {/* <Route path="users/profile/:userId" element={<UserProfilePage />} /> */}
                                         <Route path="*" element={<div className="alert alert-warning">Page Not Found (404)</div>} />

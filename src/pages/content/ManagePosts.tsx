@@ -11,7 +11,7 @@ import './NewsEventsAdmin.css';
 
 // --- START: Inlined API Service Content ---
 
-export const BACKEND_URL = "https://api-cms.startechaigroup.com"; // Base URL for your backend
+export const BACKEND_URL = "http://localhost:5005"; // Base URL for your backend
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
@@ -42,6 +42,13 @@ export async function request<T>(url: string, options: AxiosRequestConfig = {}):
     }
   }
 }
+
+export const fixImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/uploads')) return `${BACKEND_URL}${url}`;
+  return url;
+};
 
 // --- Data Interfaces ---
 export interface Comment {
@@ -91,7 +98,7 @@ export interface EventItem {
   date: string;
   time: string;
   venue: string;
-  image: string | null;
+  image: string[]; // Changed to support multiple images
   imageAltText?: string;
   description: string;
   featured: boolean;
@@ -108,9 +115,20 @@ export type NewsFormData = Omit<NewsItem, 'id' | 'comments' | 'commentsCount' | 
   imageFiles?: File[];
 };
 
-export type EventFormData = Omit<EventItem, 'id' | 'comments' | 'image' | 'createdAt' | 'updatedAt'> & {
-  imageFile?: File;
-};
+export interface EventFormData {
+  title: string;
+  date: string;
+  time: string;
+  venue: string;
+  imageFiles?: File[]; // Changed from imageFile
+  description: string;
+  featured: boolean;
+  registrationLink?: string;
+  capacity: string;
+  tags?: string[];
+  youtubeUrl?: string;
+  imageAltText?: string;
+}
 
 
 // Helper to build FormData for News
@@ -143,23 +161,20 @@ const buildNewsFormData = (newsData: Partial<NewsFormData>): FormData => {
 // Helper to build FormData for Events
 const buildEventFormData = (eventData: Partial<EventFormData>): FormData => {
   const formData = new FormData();
-  (Object.keys(eventData) as Array<keyof Partial<EventFormData>>).forEach(key => {
-    if (key === 'imageFile' || key === 'tags') return;
+  (Object.keys(eventData) as Array<keyof EventFormData>).forEach(key => {
+    if (key === 'imageFiles') return;
     const value = eventData[key];
     if (value !== undefined && value !== null) {
-      if (typeof value === 'boolean') {
-        formData.append(key, String(value));
+      if (key === 'tags' && Array.isArray(value)) {
+        value.forEach(tag => formData.append('tags', tag));
       } else {
         formData.append(key, String(value));
       }
     }
   });
-  if (eventData.tags && eventData.tags.length > 0) {
-    eventData.tags.forEach(tag => formData.append('tags', tag));
-  }
 
-  if (eventData.imageFile instanceof File) {
-    formData.append('imageFile', eventData.imageFile, eventData.imageFile.name);
+  if (eventData.imageFiles) {
+    eventData.imageFiles.forEach(file => formData.append('imageFiles', file));
   }
   return formData;
 };
@@ -172,7 +187,9 @@ export const getNews = async (): Promise<NewsItem[]> => {
       ...n,
       date: n.date ? n.date.split('T')[0] : '',
       tags: Array.isArray(n.tags) ? n.tags : [],
-      image: Array.isArray(n.image) ? n.image : (n.image ? [n.image] : []),
+      image: Array.isArray(n.image)
+        ? n.image.map(img => fixImageUrl(img) as string)
+        : (n.image ? [fixImageUrl(n.image) as string] : []),
       // These counts will be initially set from backend, then potentially overridden by frontend calculation
       commentsCount: n.commentsCount !== undefined ? n.commentsCount : (n.comments || 0),
       approvedCommentsCount: n.approvedCommentsCount !== undefined ? n.approvedCommentsCount : 0,
@@ -194,7 +211,9 @@ export const updateNewsItem = async (id: string | number, newsData: Partial<News
     ...updatedItem,
     date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
     tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
-    image: Array.isArray(updatedItem.image) ? updatedItem.image : (updatedItem.image ? [updatedItem.image] : []),
+    image: Array.isArray(updatedItem.image)
+      ? updatedItem.image.map(img => fixImageUrl(img) as string)
+      : (updatedItem.image ? [fixImageUrl(updatedItem.image) as string] : []),
     commentsCount: updatedItem.commentsCount !== undefined ? updatedItem.commentsCount : (updatedItem.comments || 0),
     approvedCommentsCount: updatedItem.approvedCommentsCount !== undefined ? updatedItem.approvedCommentsCount : 0,
     pendingCommentsCount: updatedItem.pendingCommentsCount !== undefined ? updatedItem.pendingCommentsCount : 0,
@@ -213,7 +232,9 @@ export const getEvents = async (): Promise<EventItem[]> => {
       ...e,
       date: e.date ? e.date.split('T')[0] : '',
       tags: Array.isArray(e.tags) ? e.tags : [],
-      image: e.image === "" ? null : e.image,
+      image: Array.isArray(e.image)
+        ? e.image.map(img => fixImageUrl(img) as string)
+        : (e.image ? [fixImageUrl(e.image) as string] : []),
     }));
   }
   throw new Error("Failed to fetch events or backend response was not successful.");
@@ -229,7 +250,9 @@ export const updateEventItem = async (id: string | number, eventData: Partial<Ev
     ...updatedItem,
     date: updatedItem.date ? updatedItem.date.split('T')[0] : '',
     tags: Array.isArray(updatedItem.tags) ? updatedItem.tags : [],
-    image: updatedItem.image === "" ? null : updatedItem.image,
+    image: Array.isArray(updatedItem.image)
+      ? updatedItem.image.map(img => fixImageUrl(img) as string)
+      : (updatedItem.image ? [fixImageUrl(updatedItem.image) as string] : []),
   };
 };
 
@@ -239,7 +262,7 @@ export const deleteEventItem = async (id: string | number): Promise<void> => {
 
 // --- COMMENTS API ---
 export const getCommentsForPost = async (postId: string | number): Promise<Comment[]> => {
-  const response = await request<{ success: boolean, comments: Comment[] }>(`/news/${postId}/comments`, { method: 'GET' });
+  const response = await request<{ success: boolean, comments: Comment[], message?: string }>(`/news/${postId}/comments`, { method: 'GET' });
   if (response.success && Array.isArray(response.comments)) {
     const mapComments = (comments: Comment[]): Comment[] => {
       return comments.map(c => ({
@@ -451,12 +474,22 @@ const PostsTable = <T extends NewsItem | EventItem>({
                     </Badge>
                   )}
                 </div>
-              ) : !isNewsItem(item) && (item as EventItem).image ? (
-                <img
-                  src={(item as EventItem).image as string}
-                  alt={(item as EventItem).imageAltText || item.title}
-                  style={{ width: '90px', height: 'auto', maxHeight: '65px', objectFit: 'cover', borderRadius: '4px', margin: 'auto', display: 'block' }}
-                />
+              ) : !isNewsItem(item) && (item as EventItem).image && (item as EventItem).image.length > 0 ? (
+                <div style={{ position: 'relative', width: '90px', height: '65px', margin: 'auto' }}>
+                  <img
+                    src={(item as EventItem).image[0]}
+                    alt={(item as EventItem).imageAltText || item.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }}
+                  />
+                  {(item as EventItem).image.length > 1 && (
+                    <Badge
+                      pill bg="dark"
+                      style={{ position: 'absolute', bottom: '5px', right: '5px', fontSize: '0.6rem', opacity: 0.85 }}
+                    >
+                      1 / {(item as EventItem).image.length}
+                    </Badge>
+                  )}
+                </div>
               ) : (
                 <span className="text-muted small" style={{ display: 'block', textAlign: 'center' }}>No Image</span>
               )}
@@ -579,7 +612,9 @@ const EditPostModal: React.FC<EditPostModalProps> = ({
           youtubeUrl: event.youtubeUrl || '',
           imageAltText: event.imageAltText || '',
         });
-        initialImagePreview = event.image || null;
+        if (event.image && event.image.length > 0) {
+          initialImagePreview = event.image[0];
+        }
       }
       setImagePreview(initialImagePreview);
       setNewNewsImagePreviews([]);
@@ -649,25 +684,32 @@ const EditPostModal: React.FC<EditPostModalProps> = ({
         setImagePreview(newsItem?.image?.[0] || null);
       }
     } else {
-      const file = files?.[0];
-      if (file) {
-        setFormData(prev => ({ ...prev, imageFile: file } as Partial<EventFormData>));
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const resultStr = reader.result as string;
-          setImagePreview(resultStr);
-          const img = new Image();
-          img.onload = () => setImageDimensions({ width: img.width, height: img.height });
-          img.src = resultStr;
-        };
-        reader.readAsDataURL(file);
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const fileArray = Array.from(files).slice(0, 10); // Limit to 10 for Events
+        setFormData(prev => ({ ...prev, imageFiles: fileArray } as Partial<EventFormData>));
+
+        const previewsPromises = fileArray.map(file => {
+          return new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        });
+
+        Promise.all(previewsPromises).then(generatedPreviews => {
+          setNewNewsImagePreviews(generatedPreviews); // Reusing setNewsImagePreviews for simplicity in UI showing
+          setImagePreview(generatedPreviews[0] || null);
+        }).catch(err => console.error("Error generating event previews:", err));
       } else {
         setFormData(prev => {
-          const { imageFile, ...rest } = prev as Partial<EventFormData>;
+          const { imageFiles, ...rest } = prev as Partial<EventFormData>;
           return rest;
         });
+        setNewNewsImagePreviews([]);
         const eventItem = item as EventItem;
-        setImagePreview(eventItem?.image || null);
+        setImagePreview(Array.isArray(eventItem?.image) ? eventItem.image[0] : (eventItem?.image || null));
       }
     }
     if (e.target) e.target.value = '';
@@ -788,10 +830,10 @@ const EditPostModal: React.FC<EditPostModalProps> = ({
             </Form.Label>
             <Form.Control
               type="file"
-              name={isNews ? "imageFiles" : "imageFile"}
+              name="imageFiles"
               accept="image/*"
               onChange={handleFileChange}
-              multiple={isNews}
+              multiple
             />
             <Form.Text muted>
               {isNews
@@ -1345,14 +1387,12 @@ const ManagePosts: React.FC = () => {
         fetchAllEvents();
       }
       setShowDeleteModal(false);
+      setItemToDelete(null);
+      setItemToDeleteType(null);
     } catch (err) {
       setModalError(err instanceof Error ? err.message : `Failed to delete ${itemToDeleteType} item.`);
     } finally {
       setLoading(false);
-      if (!(modalError && err instanceof Error && modalError !== (err as Error).message)) {
-        setItemToDelete(null);
-        setItemToDeleteType(null);
-      }
     }
   };
 
@@ -1379,13 +1419,11 @@ const ManagePosts: React.FC = () => {
         fetchAllEvents();
       }
       setShowEditModal(false);
+      setEditingItem(null);
     } catch (err) {
       setModalError(err instanceof Error ? err.message : `Failed to update ${type} item.`);
     } finally {
       setLoading(false);
-      if (!(modalError && err instanceof Error && modalError !== (err as Error).message)) {
-        setEditingItem(null);
-      }
     }
   };
 

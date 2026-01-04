@@ -22,7 +22,7 @@ const SubscribersAdmin: React.FC = () => {
     const fetchSubscribers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('https://api-cms.startechaigroup.com/api/subscribers', {
+            const response = await fetch('http://localhost:5005/api/subscribers', {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

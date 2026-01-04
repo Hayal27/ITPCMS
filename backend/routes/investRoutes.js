@@ -22,15 +22,18 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+const verifyToken = require('../middleware/verifyToken');
+const { restrictTo } = require('../middleware/roleMiddleware');
+
 // Steps Routes
 router.get('/steps', investController.getAllSteps);
-router.post('/steps', upload.single('doc'), investController.createStep);
-router.put('/steps/:id', upload.single('doc'), investController.updateStep);
-router.delete('/steps/:id', investController.deleteStep);
+router.post('/steps', verifyToken, restrictTo(1), upload.single('doc'), investController.createStep);
+router.put('/steps/:id', verifyToken, restrictTo(1), upload.single('doc'), investController.updateStep);
+router.delete('/steps/:id', verifyToken, restrictTo(1), investController.deleteStep);
 
 // Resources Routes
 router.get('/resources', investController.getAllResources);
-router.post('/resources', upload.single('file'), investController.createResource);
-router.delete('/resources/:id', investController.deleteResource);
+router.post('/resources', verifyToken, restrictTo(1), upload.single('file'), investController.createResource);
+router.delete('/resources/:id', verifyToken, restrictTo(1), investController.deleteResource);
 
 module.exports = router;

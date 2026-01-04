@@ -48,7 +48,7 @@ ChartJS.register(
     ArcElement
 );
 
-const API_BASE = "https://api-cms.startechaigroup.com/api/careers";
+const API_BASE = "http://localhost:5005/api/careers";
 
 interface Job {
     id: number;
@@ -1227,7 +1227,7 @@ const CareerAdmin: React.FC = () => {
 
                                         {selectedApp.resume_path && (
                                             <a
-                                                href={`https://api-cms.startechaigroup.com/${selectedApp.resume_path}`}
+                                                href={`http://localhost:5005/${selectedApp.resume_path}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block w-full text-center bg-blue-600 hover:bg-slate-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3"

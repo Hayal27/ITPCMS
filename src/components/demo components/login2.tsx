@@ -51,7 +51,7 @@ const LoginPage = () => {
     setMessageType("error");
 
     try {
-      const response = await axios.post("https://api-cms.startechaigroup.com5000/api/auth/login", {
+      const response = await axios.post("http://localhost:50055000/api/auth/login", {
         username: formData.username,
         password: formData.password
       });

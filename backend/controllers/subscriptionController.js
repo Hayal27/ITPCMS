@@ -136,7 +136,7 @@ const sendWelcomeEmail = async (email, isReturning = false) => {
                 <li>Exclusive announcements and resources</li>
               </ul>
               <p>Stay connected with Ethiopia's leading digital hub!</p>
-              <a href="${process.env.FRONTEND_URL || 'https://api-cms.startechaigroup.com3002'}" class="button">Visit Our Website</a>
+              <a href="${process.env.FRONTEND_URL || 'http://localhost:50053002'}" class="button">Visit Our Website</a>
             </div>
             <div class="footer">
               <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
@@ -172,7 +172,7 @@ exports.notifySubscribers = async (type, item) => {
         const title = item.title;
         const date = item.date;
         const description = item.description?.replace(/<[^>]*>/g, '').substring(0, 200) + '...';
-        const link = `${process.env.FRONTEND_URL || 'https://api-cms.startechaigroup.com3002'}/${isNews ? 'news' : 'events'}/${item.id}`;
+        const link = `${process.env.FRONTEND_URL || 'http://localhost:50053002'}/${isNews ? 'news' : 'events'}/${item.id}`;
 
         for (const subscriber of subscribers) {
             const mailOptions = {
@@ -209,7 +209,7 @@ exports.notifySubscribers = async (type, item) => {
               <div class="footer">
                 <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
                 <p>© ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
-                <p><a href="${process.env.FRONTEND_URL || 'https://api-cms.startechaigroup.com3002'}/unsubscribe?email=${subscriber.email}" class="unsubscribe">Unsubscribe</a></p>
+                <p><a href="${process.env.FRONTEND_URL || 'http://localhost:50053002'}/unsubscribe?email=${subscriber.email}" class="unsubscribe">Unsubscribe</a></p>
               </div>
             </div>
           </body>
