@@ -1,82 +1,119 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { addUser, getRoles, getDepartments, Role, Department } from '../../services/apiService';
+import { useNavigate } from 'react-router-dom';
 
-/**
- * AllUsersPage
- * Displays a list of all registered users in the CMS.
- * Replace the placeholder data with real API data as needed.
- */
-const AllUsersPage: React.FC = () => {
-  // Placeholder user data
-  const users = [
-    { id: 1, name: 'Alice Smith', email: 'alice@example.com', role: 'Admin', status: 'Active' },
-    { id: 2, name: 'Bob Johnson', email: 'bob@example.com', role: 'Editor', status: 'Active' },
-    { id: 3, name: 'Charlie Lee', email: 'charlie@example.com', role: 'Author', status: 'Inactive' },
-  ];
+const AddNewUserPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    fname: '',
+    lname: '',
+    user_name: '',
+    password: '',
+    email: '',
+    phone: '',
+    department_id: '',
+    role_id: ''
+  });
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const rolesData = await getRoles();
+        setRoles(rolesData);
+        const deptsData = await getDepartments();
+        setDepartments(deptsData);
+      } catch (err: any) {
+        console.error("Failed to load options", err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await addUser(formData);
+      alert('User created successfully!');
+      navigate('/users/all');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create user');
+    }
+  };
 
   return (
     <div className="container-fluid">
-      <div className="d-sm-flex align-items-center justify-content-between mb-4">
-        <h1 className="h3 mb-0 text-gray-800">All Users</h1>
-        {/* Optional: Add "Add New User" button */}
-        {/* <a href="/users/new" className="btn btn-primary btn-sm">
-          <i className="fas fa-user-plus"></i> Add New User
-        </a> */}
-      </div>
-
+      <h1 className="h3 mb-4 text-gray-800">Add New User</h1>
       <div className="card shadow mb-4">
         <div className="card-header py-3">
-          <h6 className="m-0 font-weight-bold text-primary">User List</h6>
+          <h6 className="m-0 font-weight-bold text-primary">User Details</h6>
         </div>
         <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-bordered" width="100%" cellSpacing={0}>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.name}</td>
-                    <td>{user.email}</td>
-                    <td>{user.role}</td>
-                    <td>
-                      <span className={`badge ${user.status === 'Active' ? 'bg-success' : 'bg-secondary'}`}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td>
-                      {/* Replace with real navigation/actions */}
-                      <a href={`/users/profile/${user.id}`} className="btn btn-sm btn-info me-2">
-                        <i className="fas fa-user"></i> View
-                      </a>
-                      <a href={`/users/edit/${user.id}`} className="btn btn-sm btn-warning">
-                        <i className="fas fa-edit"></i> Edit
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-                {users.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center">
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {error && <div className="alert alert-danger">{error}</div>}
+          <form onSubmit={handleSubmit}>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label>First Name</label>
+                <input type="text" className="form-control" name="fname" required onChange={handleChange} />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label>Last Name</label>
+                <input type="text" className="form-control" name="lname" required onChange={handleChange} />
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label>Email</label>
+                <input type="email" className="form-control" name="email" required onChange={handleChange} />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label>Phone</label>
+                <input type="text" className="form-control" name="phone" onChange={handleChange} />
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label>Username</label>
+                <input type="text" className="form-control" name="user_name" required onChange={handleChange} />
+              </div>
+              <div className="col-md-6 mb-3">
+                <label>Password</label>
+                <input type="password" className="form-control" name="password" required onChange={handleChange} />
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-md-6 mb-3">
+                <label>Department</label>
+                <select className="form-control" name="department_id" onChange={handleChange} required>
+                  <option value="">Select Department</option>
+                  {departments.map(dept => (
+                    <option key={dept.department_id} value={dept.department_id}>{dept.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="col-md-6 mb-3">
+                <label>Role</label>
+                <select className="form-control" name="role_id" onChange={handleChange} required>
+                  <option value="">Select Role</option>
+                  {roles.map(role => (
+                    <option key={role.role_id} value={role.role_id}>{role.role_name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary">Create User</button>
+          </form>
         </div>
       </div>
     </div>
   );
 };
 
-export default AllUsersPage;
+export default AddNewUserPage;

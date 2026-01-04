@@ -3,7 +3,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaFileAlt } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/invest";
+const BACKEND_URL = "http://localhost:5005/api/invest";
 
 interface InvestmentStep {
     id: number;
@@ -185,7 +185,7 @@ const InvestmentStepsAdmin: React.FC = () => {
                             <div key={res.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border dark:border-gray-700 flex flex-col items-center text-center">
                                 <div className="text-4xl text-teal-500 mb-2"><FaFileAlt /></div> {/* Icon rendering simplified for admin */}
                                 <h4 className="font-bold dark:text-white">{res.label}</h4>
-                                <a href={res.file_url.startsWith('http') ? res.file_url : `https://api-cms.startechaigroup.com${res.file_url}`} target="_blank" rel="noreferrer" className="text-blue-500 text-xs mt-2 underline">View File</a>
+                                <a href={res.file_url.startsWith('http') ? res.file_url : `http://localhost:5005${res.file_url}`} target="_blank" rel="noreferrer" className="text-blue-500 text-xs mt-2 underline">View File</a>
                                 <button onClick={() => deleteResource(res.id)} className="mt-4 text-red-500 text-xs uppercase font-bold hover:underline">Remove</button>
                             </div>
                         ))}

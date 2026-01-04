@@ -1,0 +1,31 @@
+.manage-who-we-are-container {
+    background: var(--bs-body-bg);
+    min-height: 100vh;
+}
+
+.page-title {
+    font-weight: 700;
+    color: var(--bs-body-color);
+    margin-bottom: 0;
+}
+
+.table {
+    color: var(--bs-body-color);
+}
+
+.table thead {
+    background: var(--bs-secondary-bg);
+}
+
+.table tbody tr:hover {
+    background: var(--bs-tertiary-bg);
+}
+
+.ql-container {
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.ql-editor {
+    min-height: 200px;
+}

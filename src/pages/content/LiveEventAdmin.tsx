@@ -10,7 +10,7 @@ import DailyBroadcast from '../../components/DailyBroadcast';
 import DirectBroadcast from '../../components/streaming/DirectBroadcast';
 import { io, Socket } from 'socket.io-client';
 
-const API_BASE = "https://api-cms.startechaigroup.com/api/live-events";
+const API_BASE = "http://localhost:5005/api/live-events";
 
 interface LiveEvent {
     id: number;
@@ -86,7 +86,7 @@ const LiveEventAdmin: React.FC = () => {
             return;
         }
 
-        const socket = io("https://api-cms.startechaigroup.com");
+        const socket = io("http://localhost:5005");
         socketRef.current = socket;
 
         socket.emit('join-event', {

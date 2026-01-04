@@ -30,6 +30,18 @@ export async function request<T>(url: string, options: AxiosRequestConfig = {}):
   }
 }
 
+// Helper to ensure image URLs are fully qualified
+export const fixImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/uploads')) return `${BACKEND_URL}${url}`;
+  return url;
+};
+
+export const getFullImageUrl = (baseUrl: string, imagePath?: string): string | undefined => {
+  return fixImageUrl(imagePath) || undefined;
+};
+
 export interface NewsItem {
   id: number | string;
   title: string;
@@ -164,7 +176,9 @@ export const getNews = async (): Promise<NewsItem[]> => {
       ...n,
       date: n.date ? n.date.split('T')[0] : '',
       tags: Array.isArray(n.tags) ? n.tags : [],
-      image: Array.isArray(n.image) ? n.image : (n.image ? [n.image] : []),
+      image: Array.isArray(n.image)
+        ? n.image.map(img => fixImageUrl(img) as string)
+        : (n.image ? [fixImageUrl(n.image) as string] : []),
     }));
   }
   throw new Error("Failed to fetch news or backend response was not successful.");
@@ -196,7 +210,7 @@ export const getEvents = async (): Promise<EventItem[]> => {
       ...e,
       date: e.date ? e.date.split('T')[0] : '',
       tags: Array.isArray(e.tags) ? e.tags : [],
-      image: e.image === "" ? null : e.image,
+      image: fixImageUrl(e.image),
     }));
   }
   throw new Error("Failed to fetch events or backend response was not successful.");
@@ -247,11 +261,34 @@ export const deleteContactMessage = async (id: number | string): Promise<void> =
   await request<{ success: boolean, message: string }>(`/admin/messages/${id}`, { method: 'DELETE' });
 };
 
+// --- INVESTOR INQUIRY API ---
+export interface InvestorInquiry {
+  id: number;
+  full_name: string;
+  email: string;
+  organization?: string;
+  area_of_interest?: string;
+  status: 'pending' | 'read' | 'archived';
+  created_at: string;
+}
+
+export const getInvestorInquiries = async (): Promise<InvestorInquiry[]> => {
+  const response = await request<{ success: boolean, data: InvestorInquiry[] }>('/investor-inquiries/admin/inquiries', { method: 'GET' });
+  if (response.success) {
+    return response.data;
+  }
+  throw new Error("Failed to fetch investor inquiries");
+};
+
 // --- MEDIA API ---
 export const getMediaItems = async (): Promise<MediaItem[]> => {
   const response = await request<{ success: boolean, mediaItems: MediaItem[] }>('/media', { method: 'GET' });
   if (response.success) {
-    return response.mediaItems;
+    return response.mediaItems.map(item => ({
+      ...item,
+      src: fixImageUrl(item.src) as string,
+      poster: fixImageUrl(item.poster) as string,
+    }));
   }
   throw new Error("Failed to fetch media items");
 };
@@ -264,12 +301,12 @@ export const addMediaItem = async (mediaData: MediaFormData): Promise<any> => {
   formData.append('type', mediaData.type);
   if (mediaData.description) formData.append('description', mediaData.description);
 
-  if (mediaData.type === 'image' && mediaData.mediaFiles) {
+  if (mediaData.type === 'image' && mediaData.mediaFiles && mediaData.mediaFiles.length > 0) {
     mediaData.mediaFiles.forEach(file => {
-      formData.append('mediaFile', file, file.name);
+      formData.append('mediaFiles', file, file.name); // Corrected key to 'mediaFiles'
     });
-  } else if (mediaData.type === 'video' && mediaData.src) {
-    formData.append('src', mediaData.src);
+  } else if (mediaData.type === 'video') {
+    if (mediaData.src) formData.append('src', mediaData.src);
     if (mediaData.youtubeUrl) formData.append('youtubeUrl', mediaData.youtubeUrl);
   }
 
@@ -281,4 +318,258 @@ export const addMediaItem = async (mediaData: MediaFormData): Promise<any> => {
     method: 'POST',
     data: formData,
   });
+};
+
+export const updateMediaItem = async (id: number | string, mediaData: Partial<MediaFormData>): Promise<any> => {
+  const formData = new FormData();
+  if (mediaData.title) formData.append('title', mediaData.title);
+  if (mediaData.date) formData.append('date', mediaData.date);
+  if (mediaData.category) formData.append('category', mediaData.category);
+  if (mediaData.type) formData.append('type', mediaData.type);
+  if (mediaData.description) formData.append('description', mediaData.description);
+
+  if (mediaData.type === 'image' && mediaData.mediaFiles && mediaData.mediaFiles.length > 0) {
+    formData.append('mediaFiles', mediaData.mediaFiles[0]); // Update usually only takes one file
+  } else if (mediaData.type === 'video') {
+    if (mediaData.src) formData.append('src', mediaData.src);
+    if (mediaData.youtubeUrl) formData.append('youtubeUrl', mediaData.youtubeUrl);
+  }
+
+  if (mediaData.posterFile) {
+    formData.append('posterFile', mediaData.posterFile);
+  }
+
+  return request<any>(`/mediaup/${id}`, {
+    method: 'PUT',
+    data: formData,
+  });
+};
+
+export const deleteMediaItem = async (id: number | string): Promise<void> => {
+  await request<any>(`/media/${id}`, { method: 'DELETE' });
+};
+
+/* --- USER & ROLE API --- */
+
+export interface Role {
+  role_id: number;
+  role_name: string;
+  status: number;
+}
+
+export interface Department {
+  department_id: number;
+  name: string;
+}
+
+export interface User {
+  user_id: number;
+  user_name: string;
+  role_id: number;
+  status: number | string;
+  created_at: string;
+  name?: string;
+  fname?: string;
+  lname?: string;
+  email?: string;
+  phone?: string;
+  role_name?: string;
+  department_id?: number;
+}
+
+export const getUsers = async (): Promise<User[]> => {
+  return request<User[]>('/users', { method: 'GET' });
+};
+
+export const addUser = async (userData: any): Promise<any> => {
+  return request('/addUser', {
+    method: 'POST',
+    data: userData,
+  });
+};
+
+export const updateUser = async (userId: number | string, userData: any): Promise<any> => {
+  return request(`/updateUser/${userId}`, {
+    method: 'PUT',
+    data: userData,
+  });
+};
+
+export const deleteUser = async (userId: number): Promise<void> => {
+  await request<{ success: boolean }>(`/users/${userId}`, { method: 'DELETE' });
+};
+
+// --- BOARD MEMBERS & WHO WE ARE API ---
+export interface BoardMember {
+  id: number;
+  name: string;
+  english_name?: string;
+  position?: string;
+  bio?: string;
+  image_url?: string;
+  linkedin?: string;
+  twitter?: string;
+  order_index: number;
+}
+
+export interface WhoWeAreSection {
+  id: number;
+  section_type: 'hero' | 'section' | 'features' | 'voice' | 'cta';
+  title?: string;
+  subtitle?: string;
+  content?: string;
+  image_url?: string;
+  order_index: number;
+  is_active: boolean;
+}
+
+export const getBoardMembers = async (): Promise<BoardMember[]> => {
+  const response = await request<{ success: boolean, boardMembers: BoardMember[] }>('/about/board-members', { method: 'GET' });
+  if (response.success) {
+    return response.boardMembers.map(member => ({
+      ...member,
+      image_url: fixImageUrl(member.image_url) as string
+    }));
+  }
+  throw new Error("Failed to fetch board members");
+};
+
+export const addBoardMember = async (memberData: Partial<BoardMember> | FormData): Promise<any> => {
+  const isFormData = memberData instanceof FormData;
+  return request<any>('/about/board-members', {
+    method: 'POST',
+    headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+    data: memberData,
+  });
+};
+
+export const updateBoardMember = async (id: number, memberData: Partial<BoardMember> | FormData): Promise<any> => {
+  const isFormData = memberData instanceof FormData;
+  return request<any>(`/about/board-members/${id}`, {
+    method: 'PUT',
+    headers: isFormData ? {} : { 'Content-Type': 'application/json' },
+    data: memberData,
+  });
+};
+
+export const deleteBoardMember = async (id: number): Promise<void> => {
+  await request<any>(`/about/board-members/${id}`, { method: 'DELETE' });
+};
+
+export const getWhoWeAreSections = async (): Promise<WhoWeAreSection[]> => {
+  const response = await request<{ success: boolean, sections: WhoWeAreSection[] }>('/about/who-we-are', { method: 'GET' });
+  if (response.success) {
+    return response.sections.map(section => ({
+      ...section,
+      image_url: fixImageUrl(section.image_url) as string
+    }));
+  }
+  throw new Error("Failed to fetch who we are sections");
+};
+
+export const addWhoWeAreSection = async (sectionData: Partial<WhoWeAreSection>): Promise<any> => {
+  return request<any>('/about/who-we-are', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    data: sectionData,
+  });
+};
+
+export const updateWhoWeAreSection = async (id: number, sectionData: Partial<WhoWeAreSection>): Promise<any> => {
+  return request<any>(`/about/who-we-are/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    data: sectionData,
+  });
+};
+
+export const deleteWhoWeAreSection = async (id: number): Promise<void> => {
+  await request<any>(`/about/who-we-are/${id}`, { method: 'DELETE' });
+};
+
+export const changeUserStatus = async (userId: number | string, status: number | string): Promise<any> => {
+  return request(`/${userId}/status`, {
+    method: 'PUT',
+    data: { status },
+  });
+};
+
+export const getRoles = async (): Promise<Role[]> => {
+  return request<Role[]>('/roles', { method: 'GET' });
+};
+
+export const createRole = async (roleData: { role_name: string }): Promise<any> => {
+  return request('/roles', {
+    method: 'POST',
+    data: roleData,
+  });
+};
+
+export const updateRole = async (roleId: number | string, roleData: { role_name: string, status: number }): Promise<any> => {
+  return request(`/roles/${roleId}`, {
+    method: 'PUT',
+    data: roleData,
+  });
+};
+
+export const deleteRole = async (roleId: number | string): Promise<any> => {
+  return request(`/roles/${roleId}`, { method: 'DELETE' });
+};
+
+export const getDepartments = async (): Promise<Department[]> => {
+  return request<Department[]>('/department', { method: 'GET' });
+};
+
+// --- MENU & PERMISSIONS API ---
+export interface Menu {
+  id: number;
+  title: string;
+  path?: string;
+  icon?: string;
+  color?: string;
+  parent_id?: number | null;
+  order_index: number;
+  is_section: boolean;
+  is_dropdown: boolean;
+  is_active: boolean;
+}
+
+export const getMyNavigation = async (): Promise<Menu[]> => {
+  const response = await request<{ success: boolean, data: Menu[] }>('/menus/my-nav', { method: 'GET' });
+  return response.data;
+};
+
+export const getAllMenus = async (): Promise<Menu[]> => {
+  const response = await request<{ success: boolean, data: Menu[] }>('/menus/all', { method: 'GET' });
+  return response.data;
+};
+
+export const createMenu = async (formData: any): Promise<any> => {
+  return request('/menus/create', { method: 'POST', data: formData });
+};
+
+export const updateMenu = async (id: number, formData: any): Promise<any> => {
+  return request(`/menus/${id}`, { method: 'PUT', data: formData });
+};
+
+export const deleteMenu = async (id: number): Promise<any> => {
+  return request(`/menus/${id}`, { method: 'DELETE' });
+};
+
+export const getRolePermissions = async (roleId: number): Promise<number[]> => {
+  const response = await request<{ success: boolean, data: number[] }>(`/menus/role/${roleId}`, { method: 'GET' });
+  return response.data;
+};
+
+export const updateRolePermissions = async (roleId: number, menuIds: number[]): Promise<any> => {
+  return request(`/menus/role/${roleId}`, { method: 'POST', data: { menu_ids: menuIds } });
+};
+
+export const getUserPermissions = async (userId: number): Promise<{ menu_id: number, permission_type: string }[]> => {
+  const response = await request<{ success: boolean, data: { menu_id: number, permission_type: string }[] }>(`/menus/user/${userId}`, { method: 'GET' });
+  return response.data;
+};
+
+export const updateUserPermissions = async (userId: number, permissions: { menu_id: number, permission_type: string }[]): Promise<any> => {
+  return request(`/menus/user/${userId}`, { method: 'POST', data: { permissions } });
 };

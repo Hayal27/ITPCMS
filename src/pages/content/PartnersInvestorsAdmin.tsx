@@ -2,7 +2,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaHandshake, FaBuilding, FaPlus, FaEdit, FaTrash, FaSearch } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/partners-investors";
+const BACKEND_URL = "http://localhost:5005/api/partners-investors";
 
 interface Partner {
     id: number;
@@ -457,7 +457,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="flex items-center space-x-4">
                                         <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 border flex items-center justify-center">
                                             {logoPreview || partnerForm.logo ? (
-                                                <img src={logoPreview || (partnerForm.logo?.startsWith('http') ? partnerForm.logo : `https://api-cms.startechaigroup.com${partnerForm.logo}`)} alt="Logo Preview" className="w-full h-full object-contain" />
+                                                <img src={logoPreview || (partnerForm.logo?.startsWith('http') ? partnerForm.logo : `http://localhost:5005${partnerForm.logo}`)} alt="Logo Preview" className="w-full h-full object-contain" />
                                             ) : (
                                                 <FaHandshake className="text-gray-400" />
                                             )}
@@ -491,7 +491,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         {partnerForm.gallery?.map((img, idx) => (
                                             <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border">
-                                                <img src={img.startsWith('http') ? img : `https://api-cms.startechaigroup.com${img}`} className="w-full h-full object-cover" />
+                                                <img src={img.startsWith('http') ? img : `http://localhost:5005${img}`} className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setPartnerForm({ ...partnerForm, gallery: partnerForm.gallery?.filter((_, i) => i !== idx) })}
@@ -668,7 +668,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="flex items-center space-x-4">
                                         <div className="w-24 h-16 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 border flex items-center justify-center">
                                             {imagePreview || investorForm.image ? (
-                                                <img src={imagePreview || (investorForm.image?.startsWith('http') ? investorForm.image : `https://api-cms.startechaigroup.com${investorForm.image}`)} alt="Investor Preview" className="w-full h-full object-cover" />
+                                                <img src={imagePreview || (investorForm.image?.startsWith('http') ? investorForm.image : `http://localhost:5005${investorForm.image}`)} alt="Investor Preview" className="w-full h-full object-cover" />
                                             ) : (
                                                 <FaBuilding className="text-gray-400" />
                                             )}
@@ -692,7 +692,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         {investorForm.gallery?.map((img, idx) => (
                                             <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border">
-                                                <img src={img.startsWith('http') ? img : `https://api-cms.startechaigroup.com${img}`} className="w-full h-full object-cover" />
+                                                <img src={img.startsWith('http') ? img : `http://localhost:5005${img}`} className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setInvestorForm({ ...investorForm, gallery: investorForm.gallery?.filter((_, i) => i !== idx) })}

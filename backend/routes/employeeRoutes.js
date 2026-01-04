@@ -1,15 +1,16 @@
 // employeeRoutes.js
 const express = require('express');
 const router = express.Router();
-const verifyToken = require('../middleware/verifyToken');
+const verifyToken = require('../middleware/verifyToken.js');
 const { addEmployee, getAllDepartments, getAllRoles, getAllSupervisors } = require('../controllers/employeeController');
 
-// Define routes
+const { restrictTo } = require('../middleware/roleMiddleware.js');
 
-router.post('/addEmployee', verifyToken, addEmployee);
-router.get('/departments', verifyToken, getAllDepartments); // Route to fetch all departments
-router.get('/roles', verifyToken, getAllRoles); // Route to fetch all roles
-router.get('/supervisors', verifyToken, getAllSupervisors); // Route to fetch all supervisors
+// Define routes - protected by verifyToken and Admin restriction
+router.post('/addEmployee', verifyToken, restrictTo(1), addEmployee);
+router.get('/departments', verifyToken, restrictTo(1), getAllDepartments);
+router.get('/roles', verifyToken, restrictTo(1), getAllRoles);
+router.get('/supervisors', verifyToken, restrictTo(1), getAllSupervisors);
 module.exports = router;
 
 

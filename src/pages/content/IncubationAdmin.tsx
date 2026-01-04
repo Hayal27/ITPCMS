@@ -2,7 +2,7 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaRocket, FaLightbulb, FaPlus, FaEdit, FaTrash, FaSearch, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/incubation";
+const BACKEND_URL = "http://localhost:5005/api/incubation";
 
 interface Program {
     id: number;
@@ -280,7 +280,7 @@ const IncubationAdmin: React.FC = () => {
                                                         />
                                                     </div>
                                                     {imagePreview && (
-                                                        <img src={imagePreview.startsWith('blob') ? imagePreview : `https://api-cms.startechaigroup.com${imagePreview}`} className="w-24 h-24 rounded-xl object-cover shadow-md" alt="Preview" />
+                                                        <img src={imagePreview.startsWith('blob') ? imagePreview : `http://localhost:5005${imagePreview}`} className="w-24 h-24 rounded-xl object-cover shadow-md" alt="Preview" />
                                                     )}
                                                 </div>
                                             </div>
@@ -411,7 +411,7 @@ const IncubationAdmin: React.FC = () => {
                                 stories.map(story => (
                                     <div key={story.id} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 group hover:shadow-xl transition-all">
                                         <div className="flex gap-6">
-                                            <img src={story.image_url.startsWith('http') ? story.image_url : `https://api-cms.startechaigroup.com${story.image_url}`} className="w-32 h-40 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-all" alt={story.title} />
+                                            <img src={story.image_url.startsWith('http') ? story.image_url : `http://localhost:5005${story.image_url}`} className="w-32 h-40 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-all" alt={story.title} />
                                             <div className="flex-1">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <h3 className="text-xl font-bold dark:text-white">{story.title}</h3>

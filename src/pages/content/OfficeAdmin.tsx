@@ -2,7 +2,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import axios from 'axios';
 import { FaBuilding, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaSearch } from 'react-icons/fa';
 
-const BACKEND_URL = "https://api-cms.startechaigroup.com/api/offices";
+const BACKEND_URL = "http://localhost:5005/api/offices";
 
 interface Building {
     id: number;

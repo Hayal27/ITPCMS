@@ -4,7 +4,7 @@ import Axios from 'axios';
 // --- Configuration ---
 // Access environment variables using import.meta.env for Vite
 // Ensure VITE_API_URL is defined in your .env file
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://api-cms.startechaigroup.com";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5005";
 // --- Interfaces ---
 interface User {
     user_id: string | number;
@@ -12,6 +12,8 @@ interface User {
     lname: string;
     role_id: string | number;
     user_name: string;
+    email?: string;
+    role_name?: string;
 }
 
 interface AuthState {
@@ -28,7 +30,7 @@ type AuthAction =
     | { type: 'SET_LOADING'; payload: boolean };
 
 interface AuthContextProps extends AuthState {
-    login: (credentials: Record<string, any>) => Promise<{ success: boolean; message?: string }>;
+    login: (credentials: Record<string, any>) => Promise<{ success: boolean; message?: string; locked?: boolean }>;
     logout: () => void;
     dispatch: React.Dispatch<AuthAction>;
 }
@@ -130,10 +132,10 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [state, dispatch] = useReducer(authReducer, getInitialState());
 
     // --- Actions ---
-    const login = useCallback(async (credentials: Record<string, any>): Promise<{ success: boolean; message?: string }> => {
+    const login = useCallback(async (credentials: Record<string, any>): Promise<{ success: boolean; message?: string; locked?: boolean }> => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
-            const response = await Axios.post<{ success: boolean; token?: string; user?: User; message?: string }>(`${API_BASE_URL}/login`, credentials);
+            const response = await Axios.post<{ success: boolean; token?: string; user?: User; message?: string; locked?: boolean }>(`${API_BASE_URL}/login`, credentials);
             if (response.data.success && response.data.token && response.data.user) {
                 const { token, user } = response.data;
                 dispatch({ type: 'LOGIN', payload: { user, token } });
@@ -141,13 +143,18 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } else {
                 console.error("Login API Error:", response.data.message || 'Unknown login error');
                 dispatch({ type: 'SET_LOADING', payload: false });
-                return { success: false, message: response.data.message || 'Login failed' };
+                return {
+                    success: false,
+                    message: response.data.message || 'Login failed',
+                    locked: response.data.locked
+                };
             }
         } catch (error: any) {
             console.error("Login Request Failed:", error);
             const message = error.response?.data?.message || error.message || "Login failed due to a network or server error.";
+            const locked = error.response?.data?.locked || false;
             dispatch({ type: 'SET_LOADING', payload: false });
-            return { success: false, message };
+            return { success: false, message, locked };
         }
         // No finally block needed as SET_LOADING(false) is handled in error cases and LOGIN action
     }, []); // Keep dependencies empty as dispatch is stable

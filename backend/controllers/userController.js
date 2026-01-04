@@ -3,15 +3,69 @@
 const util = require('util');
 const fs = require("fs");
 const path = require("path");
+const bcrypt = require("bcrypt");
 const con = require("../models/db");
+
+// Add new user (Create Employee -> Create User)
+const addUser = async (req, res) => {
+  const { fname, lname, email, phone, department_id, role_id, user_name, password } = req.body;
+
+  if (!user_name || !password || !email || !fname || !lname) {
+    return res.status(400).json({ message: "Missing required fields" });
+  }
+
+  const query = util.promisify(con.query).bind(con);
+
+  try {
+    await query('START TRANSACTION');
+
+    // Check if user_name or email already exists to avoid partial inserts
+    const existingUsers = await query("SELECT user_id FROM users WHERE user_name = ?", [user_name]);
+    if (existingUsers.length > 0) {
+      await query('ROLLBACK');
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    const existingEmp = await query("SELECT employee_id FROM employees WHERE email = ?", [email]);
+    if (existingEmp.length > 0) {
+      await query('ROLLBACK');
+      return res.status(400).json({ message: "Employee with this email already exists" });
+    }
+
+    // 1. Create Employee
+    const empName = `${fname} ${lname}`;
+    const empResult = await query(
+      "INSERT INTO employees (name, fname, lname, email, phone, department_id, role_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [empName, fname, lname, email, phone, department_id, role_id]
+    );
+    const employee_id = empResult.insertId;
+
+    // 2. Hash Password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // 3. Create User
+    await query(
+      "INSERT INTO users (employee_id, user_name, password, role_id, status) VALUES (?, ?, ?, ?, '1')",
+      [employee_id, user_name, hashedPassword, role_id]
+    );
+
+    await query('COMMIT');
+
+    console.log(`User created: ${user_name} (Employee ID: ${employee_id})`);
+    res.status(201).json({ message: "User created successfully" });
+
+  } catch (error) {
+    await query('ROLLBACK');
+    console.error("Error adding user:", error);
+    res.status(500).json({ message: "Error adding user", error: error.message });
+  }
+};
 
 const updateUser = async (req, res) => {
   const { user_id } = req.params;
-  // Expecting role_id (not role_name) since the users table only has role_id field.
-  const { fname, lname, user_name, phone, department_id, role_id } = req.body;
+  const { fname, lname, user_name, phone, department_id, role_id, password } = req.body;
 
   try {
-    // Promisify the query method for async/await usage
     const query = util.promisify(con.query).bind(con);
 
     // Retrieve the employee_id from the users table
@@ -22,21 +76,26 @@ const updateUser = async (req, res) => {
     }
     const employee_id = usersData[0].employee_id;
 
-    // If an employee_id exists, update the employees table for employee details
     if (employee_id) {
       await query(
         "UPDATE employees SET fname = ?, lname = ?, phone = ?, department_id = ? WHERE employee_id = ?",
         [fname, lname, phone, department_id, employee_id]
       );
-      console.log("Employee details updated for employee_id:", employee_id);
     }
 
-    // Update the users table with account details (user_name and role_id)
-    await query(
-      "UPDATE users SET user_name = ?, role_id = ? WHERE user_id = ?",
-      [user_name, role_id, user_id]
-    );
-    console.log("User account updated for user_id:", user_id);
+    let updateUserSql = "UPDATE users SET user_name = ?, role_id = ?";
+    const queryParams = [user_name, role_id];
+
+    if (password && password.trim() !== "") {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      updateUserSql += ", password = ?";
+      queryParams.push(hashedPassword);
+    }
+
+    updateUserSql += " WHERE user_id = ?";
+    queryParams.push(user_id);
+
+    await query(updateUserSql, queryParams);
 
     res.status(200).json({ message: "User updated successfully" });
   } catch (error) {
@@ -52,7 +111,6 @@ const getAllRoles = (req, res) => {
       console.error("Error retrieving roles:", err);
       return res.status(500).json({ message: "Error retrieving roles", error: err });
     }
-    console.log("Fetched roles:", results);
     res.json(results);
   });
 };
@@ -64,24 +122,26 @@ const getDepartment = (req, res) => {
       console.error("Error retrieving department:", err);
       return res.status(500).json({ message: "Error retrieving department", error: err });
     }
-    console.log("Fetched departments:", results);
     res.json(results);
   });
 };
 
-// Get all users (including employee details if available)
+// Get all users (including employee details)
 const getAllUsers = (req, res) => {
   const query = `
-    SELECT u.*, e.*
+    SELECT u.user_id, u.user_name, u.role_id, u.status, u.created_at,
+           e.name, e.fname, e.lname, e.email, e.phone, e.department_id,
+           r.role_name
     FROM users u 
     LEFT JOIN employees e ON u.employee_id = e.employee_id
+    LEFT JOIN roles r ON u.role_id = r.role_id
+    ORDER BY u.created_at DESC
   `;
   con.query(query, (err, results) => {
     if (err) {
       console.error("Error retrieving users:", err);
       return res.status(500).json({ message: "Error retrieving users", error: err });
     }
-    console.log("Fetched users:", results);
     res.json(results);
   });
 };
@@ -91,8 +151,7 @@ const changeUserStatus = (req, res) => {
   const { user_id } = req.params;
   const { status } = req.body;
 
-  if (status !== 0 && status !== 1) {
-    console.error("Invalid status provided:", status);
+  if (status != 0 && status != 1) {
     return res.status(400).json({ message: "Invalid status. Use 0 for inactive and 1 for active." });
   }
 
@@ -101,18 +160,14 @@ const changeUserStatus = (req, res) => {
       console.error("Error updating user status:", err);
       return res.status(500).json({ message: "Error updating user status", error: err });
     }
-
     if (result.affectedRows === 0) {
-      console.error("User not found for update, user_id:", user_id);
       return res.status(404).json({ message: "User not found" });
     }
-
-    console.log("User status updated successfully for user_id:", user_id, "New status:", status);
     res.json({ message: "User status updated successfully" });
   });
 };
 
-// Delete user - using correct table name (users)
+// Delete user
 const deleteUser = (req, res) => {
   const { user_id } = req.params;
 
@@ -154,12 +209,11 @@ const deleteUser = (req, res) => {
   });
 };
 
-// Get user role for current user (using req.user?.user_id from middleware)
+// Get user role for current user
 const getUserRoles = (req, res) => {
   try {
     const user_id = req.user?.user_id;
     if (!user_id) {
-      console.error("User ID not provided in request.");
       return res.status(400).json({ error: "User ID not provided" });
     }
     const sql = `
@@ -174,10 +228,8 @@ const getUserRoles = (req, res) => {
         return res.status(500).json({ error: "Internal server error" });
       }
       if (results.length === 0) {
-        console.error("User role not found for user_id:", user_id);
         return res.status(404).json({ error: "User role not found" });
       }
-      console.log("Fetched user role for user_id:", user_id, results[0]);
       res.json(results[0]);
     });
   } catch (error) {
@@ -187,6 +239,7 @@ const getUserRoles = (req, res) => {
 };
 
 module.exports = {
+  addUser,
   getUserRoles,
   getAllRoles,
   getDepartment,

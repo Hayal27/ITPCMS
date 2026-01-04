@@ -1,0 +1,48 @@
+
+CREATE TABLE IF NOT EXISTS `jobs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `department` varchar(255) NOT NULL,
+  `location` varchar(255) NOT NULL,
+  `type` varchar(50) NOT NULL DEFAULT 'Full-time',
+  `description` text,
+  `responsibilities` text,
+  `qualifications` text,
+  `status` enum('draft', 'published', 'closed') DEFAULT 'draft',
+  `start_date` date DEFAULT NULL,
+  `deadline` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `applications` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `job_id` int(11) NOT NULL,
+  `tracking_code` varchar(50) NOT NULL,
+  `full_name` varchar(255) NOT NULL,
+  `gender` varchar(20) DEFAULT NULL,
+  `email` varchar(255) NOT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `address` text,
+  `linkedin` varchar(255) DEFAULT NULL,
+  `portfolio` varchar(255) DEFAULT NULL,
+  `resume_path` varchar(255) DEFAULT NULL,
+  `cover_letter` text,
+  `education` text,
+  `work_experience` text,
+  `skills` text,
+  `status` enum('pending', 'reviewing', 'shortlisted', 'written_exam', 'interview_shortlisted', 'interviewing', 'offered', 'rejected') DEFAULT 'pending',
+  `admin_notes` text,
+  `appointment_date` date DEFAULT NULL,
+  `appointment_time` time DEFAULT NULL,
+  `appointment_location` varchar(255) DEFAULT NULL,
+  `appointment_lat` decimal(10,8) DEFAULT NULL,
+  `appointment_lng` decimal(11,8) DEFAULT NULL,
+  `appointment_map_link` varchar(1024) DEFAULT NULL,
+  `appointment_details` text,
+  `applied_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`job_id`) REFERENCES `jobs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
