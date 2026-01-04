@@ -28,22 +28,21 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ toggleSidebar, isSidebarOpen }) =
   const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
 
   // --- State ---
-  type Theme = 'light' | 'dark' | 'auto';
+  type Theme = 'light' | 'dark';
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
-      return (localStorage.getItem('theme') as Theme) || 'auto';
+      return (localStorage.getItem('theme') as Theme) || 'dark';
     }
-    return 'auto';
+    return 'dark';
   });
 
-  type OpenDropdownType = 'theme' | 'notifications' | 'apps' | 'profile' | null;
+  type OpenDropdownType = 'notifications' | 'apps' | 'profile' | null;
   const [openDropdown, setOpenDropdown] = useState<OpenDropdownType>(null);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // --- Refs ---
-  const themeRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const appsRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -55,32 +54,18 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ toggleSidebar, isSidebarOpen }) =
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const applyTheme = (selectedTheme: Theme) => {
-      const prefersDark = mediaQuery.matches;
-      let finalTheme: 'light' | 'dark';
-      if (selectedTheme === 'auto') {
-        finalTheme = prefersDark ? 'dark' : 'light';
-      } else {
-        finalTheme = selectedTheme;
-      }
-      if (finalTheme === 'dark') {
+      if (selectedTheme === 'dark') {
         root.classList.add('dark');
         document.body.classList.add('dark');
       } else {
         root.classList.remove('dark');
         document.body.classList.remove('dark');
       }
-      root.setAttribute('data-bs-theme', finalTheme);
+      root.setAttribute('data-bs-theme', selectedTheme);
     };
 
     applyTheme(theme);
     localStorage.setItem('theme', theme);
-
-    const systemThemeListener = () => {
-      if (theme === 'auto') applyTheme('auto');
-    };
-
-    if (theme === 'auto') mediaQuery.addEventListener('change', systemThemeListener);
-    return () => mediaQuery.removeEventListener('change', systemThemeListener);
   }, [theme]);
 
   // Click outside handler
@@ -88,14 +73,13 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ toggleSidebar, isSidebarOpen }) =
     const handleClickOutside = (event: MouseEvent) => {
       if (!openDropdown) return;
 
-      const refs = {
-        theme: themeRef,
+      const refs: Record<string, React.RefObject<HTMLDivElement>> = {
         notifications: notificationsRef,
         apps: appsRef,
         profile: profileRef,
       };
 
-      const currentRef = refs[openDropdown];
+      const currentRef = openDropdown ? refs[openDropdown] : null;
       if (currentRef?.current && !currentRef.current.contains(event.target as Node)) {
         setOpenDropdown(null);
       }
@@ -164,10 +148,6 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ toggleSidebar, isSidebarOpen }) =
 
 
   // --- Handlers ---
-  const handleThemeChange = (newTheme: Theme) => {
-    setTheme(newTheme);
-    setOpenDropdown(null);
-  };
 
   const toggleDropdown = (dropdown: OpenDropdownType) => {
     setOpenDropdown(prev => (prev === dropdown ? null : dropdown));
@@ -212,29 +192,22 @@ const TopNavbar: React.FC<TopNavbarProps> = ({ toggleSidebar, isSidebarOpen }) =
       <div className="flex items-center gap-2 sm:gap-4">
 
         {/* Theme Toggle */}
-        <div className="relative" ref={themeRef}>
+        <div className="relative">
           <button
-            onClick={() => toggleDropdown('theme')}
+            onClick={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
             className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700 transition-colors focus:outline-none relative"
+            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
           >
-            {theme === 'light' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
-            {theme === 'dark' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
-            {theme === 'auto' && <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+            {theme === 'light' ? (
+              <svg className="w-5 h-5 transition-transform hover:rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 transition-transform hover:-rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
           </button>
-          {openDropdown === 'theme' && (
-            <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-50 animate-fade-in-down">
-              {['light', 'dark', 'auto'].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => handleThemeChange(t as Theme)}
-                  className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between ${theme === t ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                >
-                  <span className="capitalize">{t}</span>
-                  {theme === t && <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>}
-                </button>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Notifications */}

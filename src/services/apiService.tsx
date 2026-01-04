@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export const BACKEND_URL = import.meta.env.VITE_API_URL || "https://api.ethiopianitpark.et"; // Base URL for your backend
+export const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:5005"; // Base URL for your backend
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
@@ -572,4 +572,30 @@ export const getUserPermissions = async (userId: number): Promise<{ menu_id: num
 
 export const updateUserPermissions = async (userId: number, permissions: { menu_id: number, permission_type: string }[]): Promise<any> => {
   return request(`/menus/user/${userId}`, { method: 'POST', data: { permissions } });
+};
+
+// --- ANALYTICS API ---
+export interface DashboardStats {
+  totalUsers: number;
+  totalPosts: number;
+  totalComments: number;
+  pendingComments: number;
+  activeSubscribers: number;
+  pendingInquiries: number;
+  newMessages: number;
+}
+
+export interface GrowthData {
+  newsGrowth: { month: string; count: number }[];
+  userGrowth: { month: string; count: number }[];
+}
+
+export const getDashboardStats = async (): Promise<DashboardStats> => {
+  const response = await request<{ success: boolean; data: DashboardStats }>('/analytics/stats', { method: 'GET' });
+  return response.data;
+};
+
+export const getGrowthData = async (): Promise<GrowthData> => {
+  const response = await request<{ success: boolean; data: GrowthData }>('/analytics/growth', { method: 'GET' });
+  return response.data;
 };

@@ -40,10 +40,10 @@ const DirectBroadcast: React.FC<DirectBroadcastProps> = ({ eventId, onStatusChan
 
             const peer = new Peer(peerIdToUse, {
                 host: window.location.hostname,
-                port: 5001,
+                port: 5005, // Match backend port
                 path: '/peerjs',
                 secure: window.location.protocol === 'https:',
-                debug: 1,
+                debug: 3,
                 config: {
                     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
                 }

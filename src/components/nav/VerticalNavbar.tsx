@@ -169,9 +169,9 @@ const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen }) => {
     <nav className="pb-10 font-sans overscroll-contain flex flex-col h-full">
       <div className={`flex flex-col gap-4 px-4 py-6 ${!isSidebarOpen ? 'items-center' : ''}`}>
         <Link to="/" className={`flex items-center gap-3 ${!isSidebarOpen ? 'justify-center' : ''}`}>
-          <img src="/assets/img/logo/ITP.png" alt="ITPC Logo" className="h-8 w-auto object-contain" />
+          <img src="/assets/img/logo/ITP_logo - 1.jpg" alt="ITPC Logo" className="h-12 w-auto object-contain" />
           <span className={`font-bold text-xl text-gray-800 dark:text-white tracking-tight transition-opacity duration-200 ${!isSidebarOpen ? 'hidden w-0 opacity-0' : 'block opacity-100'}`}>
-            ITPC<span className="text-blue-600">CMS</span>
+            <span className="text-blue-600">CMS</span>
           </span>
         </Link>
 

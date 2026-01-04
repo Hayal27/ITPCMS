@@ -18,7 +18,7 @@ const DirectViewer: React.FC<DirectViewerProps> = ({ eventId }) => {
         // Initialize Peer with custom server
         const peer = new Peer(`viewer-${Math.random().toString(36).substr(2, 9)}`, {
             host: window.location.hostname,
-            port: 5001,
+            port: 5005, // Match backend port
             path: '/peerjs',
             secure: window.location.protocol === 'https:',
             debug: 3

@@ -16,9 +16,9 @@ const Footer: React.FC = () => {
 
         {/* Developer / Love note */}
         <div className="hidden md:flex items-center text-xs text-gray-400 dark:text-gray-500">
-          <span>Designed & Developed with</span>
+          <span>Designed & Developed by</span>
           <FaHeart className="mx-1 text-red-500 animate-pulse" />
-          <span>for Excellence</span>
+          <span>ITPC Software Dev't Team</span>
         </div>
 
         {/* Quick Links */}

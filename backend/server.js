@@ -33,6 +33,7 @@ const mediaRoutes = require("./routes/mediaRoutes.js");
 const aboutRoutes = require("./routes/aboutRoutes.js");
 const investorInquiryRoutes = require("./routes/investorInquiryRoutes.js");
 const menuRoutes = require("./routes/menuRoutes.js");
+const analyticsRoutes = require("./routes/analyticsRoutes.js");
 const loggingMiddleware = require("./middleware/loggingMiddleware.js");
 const verifyToken = require("./middleware/verifyToken.js");
 const setupSocket = require("./socketHandler.js");
@@ -43,17 +44,29 @@ const PORT = process.env.PORT || 5005;
 
 // PeerJS Server Setup
 const peerServer = ExpressPeerServer(server, {
-  debug: false,
+  debug: true,
   allow_discovery: true,
-  proxied: true
+  proxied: false
 });
 app.use("/peerjs", peerServer);
 setupSocket(server);
 
 // Middleware
 const corsOptions = {
-  origin: [process.env.FRONTEND_URL, "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003", "http://localhost:3004"], // Allow specific origins
-  methods: "GET,POST,PUT,DELETE",
+  origin: [
+    process.env.FRONTEND_URL,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://localhost:3004",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "http://127.0.0.1:5173", // Common Vite port
+    "http://localhost:5173"
+  ].filter(Boolean), // Allow specific origins
+  methods: "GET,POST,PUT,DELETE,OPTIONS",
   allowedHeaders: "Content-Type,Authorization",
   credentials: true,
 };
@@ -77,6 +90,7 @@ app.use(
 );
 
 app.use(helmet({
+  contentSecurityPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
@@ -131,6 +145,7 @@ app.use("/api/trainings", trainingRoutes);
 app.use("/api/invest", investRoutes);
 app.use("/api/investor-inquiries", investorInquiryRoutes);
 app.use("/api/menus", menuRoutes);
+app.use("/api/analytics", analyticsRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api", newsRoutes);
 app.use("/api", eventRoutes);
@@ -142,6 +157,15 @@ app.put("/logout/:user_id", verifyToken, authMiddleware.logout);
 app.post("/forgot-password", authMiddleware.forgotPassword);
 app.post("/reset-password", authMiddleware.resetPassword);
 app.post("/redeem-account", authMiddleware.redeemAccount);
+
+// 404 Handler - Catch-all for unmatched routes
+app.use((req, res, next) => {
+  console.log(`[404] ${req.method} ${req.url} - Not Matched`);
+  res.status(404).json({
+    success: false,
+    message: `API Route ${req.method} ${req.url} not found on this server.`
+  });
+});
 
 // Global Error Handling
 app.use((err, req, res, next) => {
