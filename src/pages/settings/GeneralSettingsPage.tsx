@@ -1,4 +1,5 @@
-// GeneralSettingPageimport React, { useState, FormEvent } from 'react';
+import React, { useState, FormEvent } from 'react';
+import { BACKEND_URL } from '../../services/apiService';
 
 /**
  * GeneralSettingsPage
@@ -10,7 +11,7 @@ const GeneralSettingsPage: React.FC = () => {
   const [siteTitle, setSiteTitle] = useState<string>('My Awesome CMS');
   const [tagline, setTagline] = useState<string>('Just another CMS site');
   const [adminEmail, setAdminEmail] = useState<string>('admin@example.com');
-  const [siteUrl, setSiteUrl] = useState<string>('http://localhost:50053000'); // Or your actual URL
+  const [siteUrl, setSiteUrl] = useState<string>(BACKEND_URL); // Or your actual URL
   const [timezone, setTimezone] = useState<string>('UTC');
   const [dateFormat, setDateFormat] = useState<string>('F j, Y'); // Example: January 1, 2024
   const [timeFormat, setTimeFormat] = useState<string>('g:i a'); // Example: 1:30 pm

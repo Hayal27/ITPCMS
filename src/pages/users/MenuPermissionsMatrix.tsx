@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { getRoles, Role, getAllMenus, getRolePermissions, updateRolePermissions, Menu } from '../../services/apiService';
 import { Spinner, Table, Form, Button, Badge, Alert } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
@@ -9,9 +9,12 @@ const MenuPermissionsMatrix: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // permissionsMap[roleId] = Set of menuIds
     const [permissionsMap, setPermissionsMap] = useState<Record<number, Set<number>>>({});
+    const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+    const [hoveredCol, setHoveredCol] = useState<number | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -53,6 +56,17 @@ const MenuPermissionsMatrix: React.FC = () => {
         });
     };
 
+    const handleColumnToggle = (roleId: number) => {
+        setPermissionsMap(prev => {
+            const currentSet = prev[roleId];
+            const allMenuIds = menus.map(m => m.id);
+            const isAllSelected = allMenuIds.every(id => currentSet.has(id));
+
+            const newSet = new Set<number>(isAllSelected ? [] : allMenuIds);
+            return { ...prev, [roleId]: newSet };
+        });
+    };
+
     const handleSaveAll = async () => {
         setSaving(true);
         try {
@@ -60,91 +74,174 @@ const MenuPermissionsMatrix: React.FC = () => {
                 updateRolePermissions(parseInt(roleId), Array.from(menuIds))
             );
             await Promise.all(promises);
-            alert('All permissions saved successfully!');
+            alert('Security matrices synchronized successfully.');
         } catch (err: any) {
-            alert('Error saving permissions: ' + err.message);
+            alert('Hardware failure/API Error: ' + err.message);
         } finally {
             setSaving(false);
         }
     };
 
+    const filteredMenus = useMemo(() => {
+        if (!searchTerm) return menus;
+        return menus.filter(m =>
+            m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (m.path && m.path.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+    }, [menus, searchTerm]);
+
     if (loading) return (
-        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '400px' }}>
-            <Spinner animation="border" variant="primary" />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-slate-400">
+            <Spinner animation="border" variant="primary" className="mb-4" />
+            <p className="font-medium animate-pulse">Initializing Access Matrix...</p>
         </div>
     );
 
     return (
-        <div className="container-fluid mb-5">
-            <div className="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h1 className="h3 text-gray-800">Menu Access Matrix</h1>
-                    <p className="text-muted small">Manage which roles can access specific menu items across the entire CMS.</p>
-                </div>
-                <Button variant="primary" onClick={handleSaveAll} disabled={saving}>
-                    {saving ? <><Spinner size="sm" className="mr-2" /> Saving...</> : <><i className="fas fa-save mr-2"></i>Save All Changes</>}
-                </Button>
-            </div>
-
-            {error && <Alert variant="danger">{error}</Alert>}
-
-            <div className="card shadow border-0 overflow-hidden">
-                <div className="card-body p-0">
-                    <div className="table-responsive">
-                        <Table bordered hover className="mb-0 align-middle">
-                            <thead className="bg-light sticky-top">
-                                <tr>
-                                    <th className="px-4 py-3" style={{ minWidth: '250px', zIndex: 10 }}>Menu Item</th>
-                                    {roles.map(role => (
-                                        <th key={role.role_id} className="text-center px-3 py-3">
-                                            <div className="text-uppercase small font-weight-bold">{role.role_name}</div>
-                                            <Badge bg={role.role_id === 1 ? 'danger' : 'secondary'} className="x-small">ID: {role.role_id}</Badge>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {menus.map(menu => {
-                                    const indent = menu.parent_id ? 'pl-4' : '';
-                                    const isSubChild = menu.parent_id && menus.find(m => m.id === menu.parent_id)?.parent_id;
-
-                                    return (
-                                        <tr key={menu.id} className={menu.is_section ? 'bg-light/50' : ''}>
-                                            <td className={`${indent} ${isSubChild ? 'pl-5' : ''} px-4 py-2`}>
-                                                <div className="d-flex align-items-center">
-                                                    <div className="mr-2 opacity-50 small" dangerouslySetInnerHTML={{ __html: menu.icon || '' }} />
-                                                    <span className={`${menu.is_section ? 'font-weight-bold text-uppercase x-small text-primary' : (menu.is_dropdown ? 'font-weight-bold' : '')}`}>
-                                                        {menu.title}
-                                                    </span>
-                                                    {menu.is_section && <Badge bg="primary" className="ml-2" style={{ fontSize: '0.6rem' }}>Section</Badge>}
-                                                </div>
-                                            </td>
-                                            {roles.map(role => (
-                                                <td key={role.role_id} className="text-center">
-                                                    <Form.Check
-                                                        type="checkbox"
-                                                        className="d-inline-block"
-                                                        checked={permissionsMap[role.role_id]?.has(menu.id) || false}
-                                                        onChange={() => handleToggle(role.role_id, menu.id)}
-                                                        disabled={role.role_id === 1 && menu.title === 'Roles & Permissions'} // Prevent locking self out of roles page
-                                                    />
-                                                </td>
-                                            ))}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </Table>
+        <div className="p-4 bg-slate-50 dark:bg-slate-950 min-h-screen">
+            {/* Header section */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-8">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 text-blue-600">
+                        <i className="fas fa-th text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white leading-tight">Access Matrix</h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-sm">Global synchronization of role-based menu permissions.</p>
                     </div>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative">
+                        <i className="fas fa-search absolute left-4 top-3 text-slate-400"></i>
+                        <input
+                            type="text"
+                            className="pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none w-64 text-sm transition-all"
+                            placeholder="Filter menus..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all disabled:opacity-50"
+                        onClick={handleSaveAll}
+                        disabled={saving}
+                    >
+                        {saving ? <Spinner size="sm" /> : <i className="fas fa-satellite-dish"></i>}
+                        Sync All Changes
+                    </button>
+                </div>
             </div>
 
-            <div className="mt-4 p-3 bg-light rounded border border-dashed">
-                <p className="mb-0 small text-muted">
-                    <i className="fas fa-info-circle mr-2"></i>
-                    Changes made in this matrix are only applied when you click the <strong>Save All Changes</strong> button.
-                    Individual user overrides can still be managed in the <Link to="/users/all" className="font-weight-bold">All Users</Link> page.
-                </p>
+            {error && <Alert variant="danger" className="mb-6 rounded-2xl border-none shadow-sm">{error}</Alert>}
+
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="overflow-x-auto relative">
+                    <table className="w-full border-collapse">
+                        <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md">
+                            <tr>
+                                <th className="sticky left-0 bg-slate-50 dark:bg-slate-800/80 backdrop-blur-md z-30 px-6 py-5 border-b border-slate-200 dark:border-slate-700 min-w-[280px]">
+                                    <div className="flex flex-col text-left">
+                                        <span className="text-xs font-black uppercase text-slate-400 tracking-[0.2em] mb-1">Resource</span>
+                                        <span className="text-sm font-bold text-slate-800 dark:text-slate-100">Functional Menus</span>
+                                    </div>
+                                </th>
+                                {roles.map((role, idx) => (
+                                    <th
+                                        key={role.role_id}
+                                        className={`px-4 py-5 border-b border-slate-200 dark:border-slate-700 text-center min-w-[120px] transition-colors ${hoveredCol === idx ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                                        onMouseEnter={() => setHoveredCol(idx)}
+                                        onMouseLeave={() => setHoveredCol(null)}
+                                    >
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 mb-1">ID: #{role.role_id}</span>
+                                            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 block mb-3">{role.role_name}</span>
+                                            <button
+                                                onClick={() => handleColumnToggle(role.role_id)}
+                                                className="text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-md hover:bg-blue-600 hover:text-white transition-all"
+                                            >
+                                                Toggle All
+                                            </button>
+                                        </div>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {filteredMenus.map((menu, rowIdx) => {
+                                const isSub = menu.parent_id !== null;
+                                const isGrandChild = isSub && menus.find(m => m.id === menu.parent_id)?.parent_id;
+
+                                return (
+                                    <tr
+                                        key={menu.id}
+                                        className={`transition-colors h-14 ${hoveredRow === rowIdx ? 'bg-slate-50/80 dark:bg-slate-800/40' : ''}`}
+                                        onMouseEnter={() => setHoveredRow(rowIdx)}
+                                        onMouseLeave={() => setHoveredRow(null)}
+                                    >
+                                        <td className={`sticky left-0 z-10 transition-colors px-6 py-4 bg-white dark:bg-slate-900 border-r border-slate-50 dark:border-slate-800 ${hoveredRow === rowIdx ? 'bg-slate-50 dark:bg-slate-800' : ''}`}>
+                                            <div className={`flex items-center gap-2 ${isGrandChild ? 'ml-10' : (isSub ? 'ml-5' : 'ml-0')}`}>
+                                                <div className="text-slate-400 text-xs opacity-60 flex-shrink-0" dangerouslySetInnerHTML={{ __html: menu.icon || '' }} />
+                                                <div className="flex flex-col truncate">
+                                                    <span className={`truncate ${menu.is_section ? 'text-xs font-black uppercase tracking-widest text-blue-600' : (menu.is_dropdown ? 'text-sm font-bold text-slate-800 dark:text-slate-100' : 'text-sm text-slate-600 dark:text-slate-400')}`}>
+                                                        {menu.title}
+                                                    </span>
+                                                    {menu.path && <span className="text-[9px] font-mono text-slate-300 dark:text-slate-600 truncate">{menu.path}</span>}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        {roles.map((role, colIdx) => {
+                                            const isSelected = permissionsMap[role.role_id]?.has(menu.id) || false;
+                                            const isSelfLock = role.role_id === 1 && menu.title === 'Roles & Permissions';
+
+                                            return (
+                                                <td
+                                                    key={role.role_id}
+                                                    className={`text-center px-4 transition-colors ${hoveredCol === colIdx ? 'bg-blue-50/30 dark:bg-blue-900/5' : ''}`}
+                                                    onMouseEnter={() => setHoveredCol(colIdx)}
+                                                    onMouseLeave={() => setHoveredCol(null)}
+                                                >
+                                                    <div className="flex justify-center">
+                                                        <div
+                                                            onClick={() => !isSelfLock && handleToggle(role.role_id, menu.id)}
+                                                            className={`w-5 h-5 rounded flex items-center justify-center cursor-pointer transition-all ${isSelfLock ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : (isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 scale-110' : 'bg-slate-100 dark:bg-slate-800 text-transparent hover:text-slate-300')}`}
+                                                        >
+                                                            <i className="fas fa-check text-[10px]"></i>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex items-start gap-3">
+                    <div className="text-amber-500 mt-1"><i className="fas fa-exclamation-triangle"></i></div>
+                    <div>
+                        <h4 className="text-sm font-bold dark:text-white mb-1">Atomic Saves</h4>
+                        <p className="text-xs text-slate-500">All changes in this matrix are cached locally and only sent to the cloud when you click Sync.</p>
+                    </div>
+                </div>
+                <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex items-start gap-3">
+                    <div className="text-blue-500 mt-1"><i className="fas fa-info-circle"></i></div>
+                    <div>
+                        <h4 className="text-sm font-bold dark:text-white mb-1">Row/Col Focus</h4>
+                        <p className="text-xs text-slate-500">Hover over any cell or header to highlight the active axis for precision configuration.</p>
+                    </div>
+                </div>
+                <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 flex items-start gap-3">
+                    <div className="text-indigo-500 mt-1"><i className="fas fa-shield-alt"></i></div>
+                    <div>
+                        <h4 className="text-sm font-bold dark:text-white mb-1">Safety Lock</h4>
+                        <p className="text-xs text-slate-500">Super Admin roles are protected from accidental lockout of critical management screens.</p>
+                    </div>
+                </div>
             </div>
         </div>
     );

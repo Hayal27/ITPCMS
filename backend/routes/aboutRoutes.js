@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require("multer");
 const path = require("path");
 const aboutController = require("../controllers/aboutController");
+const verifyToken = require("../middleware/verifyToken");
+const { restrictTo } = require("../middleware/roleMiddleware");
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -30,14 +32,19 @@ const upload = multer({
     },
 });
 
-// Board Members
+// --- Public Routes ---
 router.get("/board-members", aboutController.getBoardMembers);
+router.get("/who-we-are", aboutController.getWhoWeAreSections);
+
+// --- Admin Protected Routes (Role 1 only) ---
+router.use(verifyToken, restrictTo(1));
+
+// Board Members
 router.post("/board-members", upload.single("imageFile"), aboutController.addBoardMember);
 router.put("/board-members/:id", upload.single("imageFile"), aboutController.updateBoardMember);
 router.delete("/board-members/:id", aboutController.deleteBoardMember);
 
 // Who We Are Sections
-router.get("/who-we-are", aboutController.getWhoWeAreSections);
 router.post("/who-we-are", upload.single("imageFile"), aboutController.addWhoWeAreSection);
 router.put("/who-we-are/:id", upload.single("imageFile"), aboutController.updateWhoWeAreSection);
 router.delete("/who-we-are/:id", aboutController.deleteWhoWeAreSection);

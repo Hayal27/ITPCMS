@@ -10,7 +10,7 @@ const auditLogController = {
             entity: entity,
             entity_id: entity_id,
             details: details,
-            ip_address: req.ip || req.connection.remoteAddress,
+            ip_address: req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress,
             user_agent: (req.get && typeof req.get === 'function') ? req.get("User-Agent") : (req.headers ? req.headers["user-agent"] : null),
         };
 

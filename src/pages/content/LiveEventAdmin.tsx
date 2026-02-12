@@ -10,7 +10,9 @@ import DailyBroadcast from '../../components/DailyBroadcast';
 import DirectBroadcast from '../../components/streaming/DirectBroadcast';
 import { io, Socket } from 'socket.io-client';
 
-const API_BASE = "http://localhost:5005/api/live-events";
+import { BACKEND_URL, fixImageUrl } from '../../services/apiService';
+
+const API_BASE = `${BACKEND_URL}/api/live-events`;
 
 interface LiveEvent {
     id: number;
@@ -86,7 +88,7 @@ const LiveEventAdmin: React.FC = () => {
             return;
         }
 
-        const socket = io("http://localhost:5005");
+        const socket = io(BACKEND_URL);
         socketRef.current = socket;
 
         socket.emit('join-event', {
@@ -651,7 +653,7 @@ const LiveEventAdmin: React.FC = () => {
                     <div key={event.id} className="bg-white dark:bg-slate-900 rounded-[40px] overflow-hidden shadow-xl border border-gray-100 dark:border-gray-800 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group relative">
                         <div className="aspect-[16/10] bg-gray-100 relative overflow-hidden">
                             {event.stream_poster ? (
-                                <img src={event.stream_poster} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={event.title} />
+                                <img src={fixImageUrl(event.stream_poster) || ''} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={event.title} />
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-950">
                                     <FaVideo size={40} className="text-slate-200 dark:text-slate-700 group-hover:rotate-12 transition-transform" />

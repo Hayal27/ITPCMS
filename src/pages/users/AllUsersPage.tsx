@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { getUsers, changeUserStatus, deleteUser, getRoles, User, Role, getAllMenus, getUserPermissions, updateUserPermissions, Menu } from '../../services/apiService';
-import { Link } from 'react-router-dom';
+import { getUsers, changeUserStatus, deleteUser, getRoles, User, Role, getAllMenus, getUserPermissions, updateUserPermissions, Menu, getDepartments, Department, addUser } from '../../services/apiService';
+import { Link, useSearchParams } from 'react-router-dom';
 import Pagination from '../../components/Pagination';
 import { Modal, Button, Form, Spinner, Badge } from 'react-bootstrap';
+import { FaUserPlus, FaShieldAlt, FaKey, FaEraser, FaEye, FaEyeSlash, FaDice, FaTimes, FaEnvelope, FaPhone, FaBuilding, FaUserTag, FaUserCircle } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 
 const AllUsersPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -22,7 +26,10 @@ const AllUsersPage: React.FC = () => {
   const [filterRole, setFilterRole] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  // Pagination states
+  // Add User Modal State
+
+
+
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -42,7 +49,18 @@ const AllUsersPage: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const fetchSelectData = async () => {
+      try {
+        const rolesData = await getRoles();
+        setRoles(rolesData);
+      } catch (err) {
+        console.error("Error fetching form data", err);
+      }
+    };
+    fetchSelectData();
   }, []);
+
+
 
   const handleStatusChange = async (userId: number, currentStatus: number | string) => {
     try {
@@ -106,6 +124,8 @@ const AllUsersPage: React.FC = () => {
     }
   };
 
+
+
   // Filter Logic
   const filteredUsers = users.filter(user => {
     const matchesSearch =
@@ -141,8 +161,11 @@ const AllUsersPage: React.FC = () => {
     <div className="container-fluid mb-5">
       <div className="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 className="h3 mb-0 text-gray-800">User Management</h1>
-        <Link to="/users/add" className="btn btn-primary btn-sm shadow-sm">
-          <i className="fas fa-user-plus fa-sm text-white-50 mr-2"></i> Add New User
+        <Link
+          to="/users/add"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl shadow-lg shadow-blue-500/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 text-sm font-semibold decoration-none"
+        >
+          <FaUserPlus className="text-white/80" /> Add New User
         </Link>
       </div>
 
@@ -233,35 +256,49 @@ const AllUsersPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="px-4 text-center">
-                      <div className="btn-group" role="group">
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => handleOpenPerms(user)}
-                          title="Individual Menu Overrides"
-                        >
-                          <i className="fas fa-key mr-1"></i> Permissions
-                        </button>
-                        <button
-                          className={`btn btn-sm ${user.status == 1 ? 'btn-outline-warning' : 'btn-outline-success'}`}
-                          onClick={() => handleStatusChange(user.user_id, user.status)}
-                          title={user.status == 1 ? 'Deactivate' : 'Activate'}
-                        >
-                          <i className={`fas ${user.status == 1 ? 'fa-ban' : 'fa-check'}`}></i>
-                        </button>
-                        <Link
-                          to={`/users/edit/${user.user_id}`}
-                          className="btn btn-sm btn-outline-info"
-                          title="Edit"
-                        >
-                          <i className="fas fa-edit"></i>
-                        </Link>
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDelete(user.user_id)}
-                          title="Delete"
-                        >
-                          <i className="fas fa-trash"></i>
-                        </button>
+                      <div className="flex items-center justify-center gap-3">
+                        {/* Status Toggle */}
+                        <div className="flex flex-col items-center gap-1">
+                          <button
+                            onClick={() => handleStatusChange(user.user_id, user.status)}
+                            className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${user.status == 1 ? 'bg-green-500' : 'bg-gray-300 dark:bg-slate-700'}`}
+                            title={user.status == 1 ? 'Deactivate' : 'Activate'}
+                          >
+                            <span
+                              className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${user.status == 1 ? 'translate-x-6' : 'translate-x-1'}`}
+                            />
+                          </button>
+                          <span className="text-[9px] font-bold uppercase tracking-tighter text-gray-400">
+                            {user.status == 1 ? 'Active' : 'N/A'}
+                          </span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-1.5 text-[10px] font-bold">
+                          <button
+                            className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white px-2 py-1.5 rounded flex items-center gap-1 transition-all"
+                            onClick={() => handleOpenPerms(user)}
+                          >
+                            <i className="fas fa-key"></i>
+                            <span className="hidden lg:inline">Perms</span>
+                          </button>
+
+                          <Link
+                            to={`/users/edit/${user.user_id}`}
+                            className="bg-info/10 text-info border border-info/20 hover:bg-info hover:text-white px-2 py-1.5 rounded flex items-center gap-1 transition-all decoration-none"
+                          >
+                            <i className="fas fa-edit"></i>
+                            <span className="hidden lg:inline">Edit</span>
+                          </Link>
+
+                          <button
+                            className="bg-danger/10 text-danger border border-danger/20 hover:bg-danger hover:text-white px-2 py-1.5 rounded flex items-center gap-1 transition-all"
+                            onClick={() => handleDelete(user.user_id)}
+                          >
+                            <i className="fas fa-trash"></i>
+                            <span className="hidden lg:inline">Del</span>
+                          </button>
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -360,6 +397,9 @@ const AllUsersPage: React.FC = () => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Premium Add User Modal */}
+
     </div>
   );
 };

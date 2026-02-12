@@ -2,6 +2,7 @@ import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { Container, Row, Col, Form, Button, Card, Alert, Spinner, Table, Badge, Modal } from 'react-bootstrap';
 import { getMediaItems, addMediaItem, MediaItem, MediaFormData, BACKEND_URL } from '../../services/apiService';
 import { FaUpload, FaTrash, FaEye, FaPlus, FaVideo, FaImage } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
 
 const MediaLibraryPage: React.FC = () => {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -65,10 +66,29 @@ const MediaLibraryPage: React.FC = () => {
     setError(null);
     setSuccess(null);
 
+    // Security: Frontend Sanitization
+    const cleanTitle = DOMPurify.sanitize(formData.title, { ALLOWED_TAGS: [] }).trim();
+    const cleanDescription = DOMPurify.sanitize(formData.description || '', { ALLOWED_TAGS: [] }).trim();
+    const cleanCategory = DOMPurify.sanitize(formData.category, { ALLOWED_TAGS: [] }).trim();
+    const cleanYoutubeUrl = DOMPurify.sanitize(formData.youtubeUrl || '', { ALLOWED_TAGS: [] }).trim();
+
+    if (!cleanTitle) {
+      setError("Title cannot be empty or contain HTML tags.");
+      setUploading(false);
+      return;
+    }
+
     try {
-      let finalData = { ...formData };
-      if (formData.type === 'video' && formData.youtubeUrl) {
-        const embedUrl = getYoutubeEmbedUrl(formData.youtubeUrl);
+      let finalData = {
+        ...formData,
+        title: cleanTitle,
+        description: cleanDescription,
+        category: cleanCategory,
+        youtubeUrl: cleanYoutubeUrl
+      };
+
+      if (formData.type === 'video' && cleanYoutubeUrl) {
+        const embedUrl = getYoutubeEmbedUrl(cleanYoutubeUrl);
         if (!embedUrl) throw new Error('Invalid YouTube URL');
         finalData.src = embedUrl;
       }

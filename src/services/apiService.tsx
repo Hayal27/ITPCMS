@@ -1,28 +1,70 @@
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 
-export const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:5005"; // Base URL for your backend
+const getBaseUrl = (url: string): string => {
+  let cleanUrl = (url || '').trim();
+  if (!cleanUrl || cleanUrl === 'undefined') return "https://api.ethiopianitpark.et";
+
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    cleanUrl = `https://${cleanUrl}`;
+  }
+  return cleanUrl.replace(/\/+$/, '');
+};
+
+const rawBaseUrl = import.meta.env.VITE_API_URL || "https://api.ethiopianitpark.et";
+export const BACKEND_URL = getBaseUrl(rawBaseUrl);
+export const WEBSITE_URL = getBaseUrl(import.meta.env.VITE_WEBSITE_URL || "https://ethiopianitpark.et");
+
+// Logout Callback Mechanism
+let onLogoutCallback: (() => void) | null = null;
+export const registerLogoutCallback = (callback: () => void) => {
+  onLogoutCallback = callback;
+};
+
+// Global Axios Interceptor for Automatic Session Expiration
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn('[SECURITY] Session expired detected via interceptor. Triggering logout.');
+      if (onLogoutCallback) onLogoutCallback();
+    }
+    return Promise.reject(error);
+  }
+);
+
 
 // Generic request function using axios
 export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
   try {
+    const fullUrl = `${BACKEND_URL}/api${url}`;
     const response = await axios({
-      url: `${BACKEND_URL}/api${url}`,
+      url: fullUrl,
+      withCredentials: true,
       ...options,
       headers: {
-        // Authorization headers or other common headers can be added here
         ...options.headers,
       },
     });
     return response.data as T;
   } catch (error) {
     const axiosError = error as AxiosError;
+
     if (axiosError.response) {
       const errorData = axiosError.response.data as { message?: string; error?: string };
-      console.error('API Error Response:', errorData);
-      throw new Error(errorData?.message || errorData?.error || `Request failed with status ${axiosError.response.status}`);
+
+      // Don't log 403 errors to console (permission denied - expected behavior)
+      if (axiosError.response.status !== 403) {
+        console.error('API Error Response:', errorData);
+      }
+
+      const message = errorData?.message || errorData?.error || `Request failed with status ${axiosError.response.status}`;
+      const apiError = new Error(message) as any;
+      apiError.status = axiosError.response.status;
+      apiError.response = axiosError.response;
+      throw apiError;
     } else if (axiosError.request) {
-      console.error('API No Response:', axiosError.request);
-      throw new Error('No response received from server. Please check your network connection and backend server.');
+      console.error('API No Response:', axiosError.request, 'URL:', `${BACKEND_URL}/api${url}`);
+      throw new Error(`No response received from server at ${BACKEND_URL}/api${url}. Please check your network connection and backend server.`);
     } else {
       console.error('API Request Setup Error:', axiosError.message);
       throw new Error(axiosError.message || 'An unknown error occurred during the request setup.');
@@ -33,9 +75,37 @@ export async function request<T>(url: string, options: AxiosRequestConfig = {}):
 // Helper to ensure image URLs are fully qualified
 export const fixImageUrl = (url: string | null | undefined): string | null => {
   if (!url) return null;
-  if (url.startsWith('http')) return url;
-  if (url.startsWith('/uploads')) return `${BACKEND_URL}${url}`;
-  return url;
+
+  let cleanUrl = String(url).trim();
+
+  // 1. Handle JSON string arrays from database (e.g., '["/uploads/file.jpg"]')
+  if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
+    try {
+      const parsed = JSON.parse(cleanUrl);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cleanUrl = parsed[0]; // Get first image from array
+      }
+    } catch (e) {
+      console.warn('[fixImageUrl] Failed to parse JSON:', cleanUrl);
+    }
+  }
+
+  // 2. Remove any accidental surrounding quotes
+  cleanUrl = cleanUrl.replace(/^['"]|['"]$/g, '');
+
+  // 3. Handle production domain replacement for local development
+  if (cleanUrl.includes('api.ethiopianitpark.et')) {
+    cleanUrl = cleanUrl.replace(/https?:\/\/api\.ethiopianitpark\.et/, '');
+  }
+
+  // 4. If it's already an absolute URL, return it
+  if (cleanUrl.startsWith('http')) return cleanUrl;
+
+  // 5. If it starts with /uploads, prepend backend URL
+  if (cleanUrl.startsWith('/uploads')) return `${BACKEND_URL}${cleanUrl}`;
+
+  // 6. Otherwise return as-is (for frontend public assets)
+  return cleanUrl;
 };
 
 export const getFullImageUrl = (baseUrl: string, imagePath?: string): string | undefined => {
@@ -259,6 +329,13 @@ export const markMessageAsRead = async (id: number | string): Promise<void> => {
 
 export const deleteContactMessage = async (id: number | string): Promise<void> => {
   await request<{ success: boolean, message: string }>(`/admin/messages/${id}`, { method: 'DELETE' });
+};
+
+export const replyContactMessage = async (id: number | string, subject: string, replyMessage: string): Promise<void> => {
+  await request<{ success: boolean, message: string }>(`/admin/messages/${id}/reply`, {
+    method: 'POST',
+    data: { subject, replyMessage }
+  });
 };
 
 // --- INVESTOR INQUIRY API ---
@@ -598,4 +675,151 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 export const getGrowthData = async (): Promise<GrowthData> => {
   const response = await request<{ success: boolean; data: GrowthData }>('/analytics/growth', { method: 'GET' });
   return response.data;
+};
+
+// --- ID GENERATOR API ---
+export const saveBulkIds = async (ids: any[]): Promise<any> => {
+  return request('/ids/save-bulk', {
+    method: 'POST',
+    data: { ids }
+  });
+};
+
+export const getIdHistory = async (): Promise<any[]> => {
+  const response = await request<{ success: boolean; data: any[] }>('/ids/history', { method: 'GET' });
+  return response.data;
+};
+
+// --- EMPLOYEE MANAGEMENT API ---
+export interface Employee {
+  employee_id?: number;
+  name: string;
+  fname: string;
+  lname: string;
+  email: string;
+  phone: string;
+  sex: 'M' | 'F';
+  role_id: number;
+  department_id?: number;
+  supervisor_id?: number;
+  role_name?: string;
+  department_name?: string;
+}
+
+export const getAllEmployees = async (): Promise<Employee[]> => {
+  return request<Employee[]>('/employees/all', { method: 'GET' });
+};
+
+export const batchAddEmployees = async (employees: Employee[]): Promise<any> => {
+  return request('/employees/batch', {
+    method: 'POST',
+    data: { employees }
+  });
+};
+
+// --- ID CARD PERSONS API (Independent from employees) ---
+export interface IdCardPerson {
+  id?: number;
+  id_number?: string;
+  fname: string;
+  lname: string;
+  full_name?: string;
+  position?: string;
+  position_am?: string;
+  department?: string;
+  fname_am?: string;
+  lname_am?: string;
+  nationality?: string;
+  email?: string;
+  phone?: string;
+  sex?: 'M' | 'F';
+  date_of_birth?: string;
+  date_of_issue?: string;
+  expiry_date?: string;
+  photo_url?: string;
+  signature_url?: string;
+  qr_data?: string;
+  custom_field_1_label?: string;
+  custom_field_1_value?: string;
+  custom_field_2_label?: string;
+  custom_field_2_value?: string;
+  custom_field_3_label?: string;
+  custom_field_3_value?: string;
+  status?: 'active' | 'inactive' | 'expired';
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const getAllIdCardPersons = async (): Promise<IdCardPerson[]> => {
+  const response = await request<{ success: boolean; data: IdCardPerson[] }>('/id-card-persons/all', { method: 'GET' });
+  return response.data;
+};
+
+export const getPublicEmployeeData = async (idNumber: string): Promise<IdCardPerson> => {
+  const response = await request<{ success: boolean; data: IdCardPerson }>(`/id-card-persons/public/${idNumber}`, { method: 'GET' });
+  return response.data;
+};
+
+export const addIdCardPerson = async (person: IdCardPerson): Promise<any> => {
+  return request('/id-card-persons/add', {
+    method: 'POST',
+    data: person
+  });
+};
+
+export const batchAddIdCardPersons = async (persons: IdCardPerson[]): Promise<any> => {
+  return request('/id-card-persons/batch', {
+    method: 'POST',
+    data: { persons }
+  });
+};
+
+export const updateIdCardPerson = async (id: number, person: Partial<IdCardPerson>): Promise<any> => {
+  return request(`/id-card-persons/${id}`, {
+    method: 'PUT',
+    data: person
+  });
+};
+
+export const deleteIdCardPerson = async (id: number): Promise<any> => {
+  return request(`/id-card-persons/${id}`, {
+    method: 'DELETE'
+  });
+};
+
+// --- ID CARD TEMPLATES API ---
+export interface IdTemplateConfig {
+  id?: number;
+  template_name: string;
+  config: any;
+}
+
+export const getAllIdTemplates = async (): Promise<IdTemplateConfig[]> => {
+  const response = await request<{ success: boolean; data: IdTemplateConfig[] }>('/id-card-persons/templates', { method: 'GET' });
+  return response.data;
+};
+
+export const saveIdTemplate = async (template: IdTemplateConfig): Promise<any> => {
+  return request('/id-card-persons/templates', {
+    method: 'POST',
+    data: template
+  });
+};
+
+export const updateIdTemplate = async (id: number, template: IdTemplateConfig): Promise<any> => {
+  return request(`/id-card-persons/templates/${id}`, {
+    method: 'PUT',
+    data: template
+  });
+};
+
+export const uploadIdCardPhoto = async (formData: FormData): Promise<any> => {
+  return request('/id-card-persons/upload-photo', {
+    method: 'POST',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
 };

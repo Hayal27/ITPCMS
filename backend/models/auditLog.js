@@ -3,8 +3,8 @@ const db = require("./db");
 const AuditLog = {
     create: (logData, callback) => {
         const query = `
-      INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address, user_agent)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO audit_logs (user_id, action, entity, entity_id, details, ip_address)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
         const params = [
             logData.user_id,
@@ -13,7 +13,6 @@ const AuditLog = {
             logData.entity_id,
             logData.details ? JSON.stringify(logData.details) : null,
             logData.ip_address,
-            logData.user_agent,
         ];
 
         db.query(query, params, callback);

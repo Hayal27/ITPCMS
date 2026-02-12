@@ -4,9 +4,10 @@ import { getMyNavigation, Menu } from '../../services/apiService';
 
 interface VerticalNavbarProps {
   isSidebarOpen: boolean;
+  toggleSidebar: () => void;
 }
 
-const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen }) => {
+const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen, toggleSidebar }) => {
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -166,16 +167,15 @@ const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen }) => {
   };
 
   return (
-    <nav className="pb-10 font-sans overscroll-contain flex flex-col h-full">
+    <nav className="font-sans overscroll-contain flex flex-col h-full">
       <div className={`flex flex-col gap-4 px-4 py-6 ${!isSidebarOpen ? 'items-center' : ''}`}>
         <Link to="/" className={`flex items-center gap-3 ${!isSidebarOpen ? 'justify-center' : ''}`}>
           <img src="/assets/img/logo/ITP_logo - 1.jpg" alt="ITPC Logo" className="h-12 w-auto object-contain" />
-          <span className={`font-bold text-xl text-gray-800 dark:text-white tracking-tight transition-opacity duration-200 ${!isSidebarOpen ? 'hidden w-0 opacity-0' : 'block opacity-100'}`}>
-            <span className="text-blue-600">CMS</span>
-          </span>
+
         </Link>
 
-        <div className={`relative w-full mt-2 transition-opacity duration-200 ${!isSidebarOpen ? 'hidden opacity-0' : 'block opacity-100'}`}>
+        {/* Search Bar */}
+        <div className={`relative w-full mt-2 transition-all duration-300 ${!isSidebarOpen ? 'px-0 opacity-0 h-0 overflow-hidden' : 'opacity-100 h-10'}`}>
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -191,6 +191,7 @@ const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen }) => {
         </div>
       </div>
 
+      {/* Menu List */}
       <ul className="flex flex-col space-y-1 pt-2 flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {loading ? (
           <div className="flex justify-center py-10">
@@ -201,9 +202,44 @@ const VerticalNavbar: React.FC<VerticalNavbarProps> = ({ isSidebarOpen }) => {
             <NavItem key={item.id} to={item.path || '#'} title={item.title} icon={item.icon} color={item.color || 'blue'} />
           ))
         ) : (
-          renderMenus()
+          <>
+            {renderMenus()}
+          </>
         )}
       </ul>
+
+      {/* --- Bottom Toggle Button: Premium Experience --- */}
+      <div className="mt-auto border-t border-slate-100 dark:border-slate-800 p-4">
+        <button
+          onClick={toggleSidebar}
+          className={`
+            w-full flex items-center gap-3 p-2 rounded-xl transition-all duration-300 group
+            hover:bg-slate-50 dark:hover:bg-slate-800/50 text-gray-500 dark:text-gray-400 
+            hover:text-blue-600 dark:hover:text-blue-400
+            ${!isSidebarOpen ? 'justify-center' : ''}
+          `}
+          aria-label={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+        >
+          <div className={`
+            flex items-center justify-center w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 
+            group-hover:bg-blue-600 group-hover:text-white transition-all duration-300 shadow-sm
+            ${!isSidebarOpen ? '' : ''}
+          `}>
+            <svg
+              className={`w-5 h-5 transition-transform duration-500 ${!isSidebarOpen ? 'rotate-180' : ''}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </div>
+          {isSidebarOpen && (
+            <div className="flex flex-col items-start overflow-hidden">
+              <span className="text-sm font-bold whitespace-nowrap">Collapse View</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest leading-none">Settings</span>
+            </div>
+          )}
+        </button>
+      </div>
     </nav >
   );
 };

@@ -11,15 +11,27 @@ exports.getAllNews = (req, res) => {
 
         // Parse JSON fields
         const formattedResults = results.map(item => {
-            try {
-                item.image = JSON.parse(item.image);
-            } catch (e) {
-                // keep as is if not valid json
+            if (item.image) {
+                try {
+                    // Try to parse if it's a JSON array
+                    const parsed = JSON.parse(item.image);
+                    item.image = Array.isArray(parsed) ? parsed : [item.image];
+                } catch (e) {
+                    // If parsing fails, treat as a single image string
+                    item.image = [item.image];
+                }
+            } else {
+                item.image = [];
             }
-            try {
-                item.tags = JSON.parse(item.tags);
-            } catch (e) {
-                // keep as is
+
+            if (item.tags) {
+                try {
+                    item.tags = JSON.parse(item.tags);
+                } catch (e) {
+                    item.tags = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()) : [];
+                }
+            } else {
+                item.tags = [];
             }
             return item;
         });
@@ -42,12 +54,26 @@ exports.getNewsById = (req, res) => {
         }
 
         const item = results[0];
-        try {
-            item.image = JSON.parse(item.image);
-        } catch (e) { }
-        try {
-            item.tags = JSON.parse(item.tags);
-        } catch (e) { }
+        if (item.image) {
+            try {
+                const parsed = JSON.parse(item.image);
+                item.image = Array.isArray(parsed) ? parsed : [item.image];
+            } catch (e) {
+                item.image = [item.image];
+            }
+        } else {
+            item.image = [];
+        }
+
+        if (item.tags) {
+            try {
+                item.tags = JSON.parse(item.tags);
+            } catch (e) {
+                item.tags = typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()) : [];
+            }
+        } else {
+            item.tags = [];
+        }
 
         res.json({ success: true, news: item });
     });
@@ -59,13 +85,14 @@ exports.createNews = (req, res) => {
     let imagePaths = [];
 
     if (req.files && req.files.length > 0) {
-        const files = req.files.filter(f => f.fieldname === 'imageFiles');
+        // Accept both 'imageFiles' and 'newsImages'
+        const files = req.files.filter(f => f.fieldname === 'imageFiles' || f.fieldname === 'newsImages');
         imagePaths = files.map(file => `/uploads/${file.filename}`);
     }
 
     const query = `
-    INSERT INTO news (title, date, category, image, description, featured, readTime, tags, youtubeUrl, imageAltText)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO news (title, date, category, image, description, featured, readTime, tags, youtubeUrl, imageAltText, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
     const values = [
@@ -91,6 +118,15 @@ exports.createNews = (req, res) => {
         const auditLogController = require('./auditLogController');
         auditLogController.logActivity(req, 'CREATE', 'News', result.insertId, { title });
 
+        // Notify Subscribers
+        const subscriptionController = require('./subscriptionController');
+        subscriptionController.notifySubscribers('news', {
+            id: result.insertId,
+            title,
+            date,
+            description
+        }).catch(err => console.error('Notification Error:', err));
+
         res.status(201).json({ success: true, message: 'News created successfully', id: result.insertId });
     });
 };
@@ -100,22 +136,13 @@ exports.updateNews = (req, res) => {
     const { id } = req.params;
     const { title, date, category, description, featured, readTime, tags, youtubeUrl, imageAltText } = req.body;
 
-    // Logic to handle images needs to be robust: keeping old ones, adding new ones, removing specific ones.
-    // For simplicity here, assuming full replace or append logic would be handled by frontend sending current state.
-    // In a basic implementation, if new files are uploaded, we might just use those. 
-    // BETTER APPROACH: Frontend sends 'existingImages' array and we combine with new uploads.
-
-    // For now, let's assuming if files are uploaded, we append them to existing or replace depending on logic.
-    // Let's first fetch existing to merge if needed, but let's stick to a simpler "update what's passed" approach for now.
-
     let imagePaths = [];
     if (req.files && req.files.length > 0) {
-        const files = req.files.filter(f => f.fieldname === 'imageFiles');
+        // Support both 'imageFiles' and 'newsImages' (used in current frontend)
+        const files = req.files.filter(f => f.fieldname === 'imageFiles' || f.fieldname === 'newsImages');
         imagePaths = files.map(file => `/uploads/${file.filename}`);
     }
 
-    // Construct update query dynamically or fixed if we assume all fields are present
-    // Simplified fixed query for core fields
     let query = `
     UPDATE news 
     SET title=?, date=?, category=?, description=?, featured=?, readTime=?, tags=?, youtubeUrl=?, imageAltText=?
@@ -146,11 +173,32 @@ exports.updateNews = (req, res) => {
             return res.status(500).json({ success: false, message: 'Failed to update news' });
         }
 
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'News item not found' });
+        }
+
         // Log Activity
         const auditLogController = require('./auditLogController');
         auditLogController.logActivity(req, 'UPDATE', 'News', id, { title });
 
-        res.json({ success: true, message: 'News updated successfully' });
+        // Fetch the updated item to return it to the frontend
+        const fetchQuery = 'SELECT * FROM news WHERE id = ?';
+        db.query(fetchQuery, [id], (fetchErr, fetchResults) => {
+            if (fetchErr || fetchResults.length === 0) {
+                // Return success anyway, but without the object (fallback)
+                return res.json({ success: true, message: 'News updated successfully' });
+            }
+
+            const item = fetchResults[0];
+            try {
+                item.image = JSON.parse(item.image);
+            } catch (e) { }
+            try {
+                item.tags = JSON.parse(item.tags);
+            } catch (e) { }
+
+            res.json({ success: true, message: 'News updated successfully', ...item });
+        });
     });
 };
 
@@ -174,10 +222,10 @@ exports.deleteNews = (req, res) => {
 
 // --- Comments Logic ---
 
-// Get comments for a specific news item
+// Get comments for a specific news item (Public - Approved only)
 exports.getCommentsByPostId = (req, res) => {
     const { id } = req.params;
-    const query = 'SELECT * FROM comments WHERE news_item_id = ? ORDER BY created_at ASC';
+    const query = 'SELECT * FROM comments WHERE news_item_id = ? AND approved = 1 ORDER BY created_at ASC';
 
     db.query(query, [id], (err, results) => {
         if (err) {
@@ -214,10 +262,55 @@ exports.getCommentsByPostId = (req, res) => {
     });
 };
 
+// Get comments for a specific news item (Admin - All comments)
+exports.getCommentsByPostIdAdmin = (req, res) => {
+    const { id } = req.params;
+    const query = 'SELECT * FROM comments WHERE news_item_id = ? ORDER BY created_at ASC';
+
+    db.query(query, [id], (err, results) => {
+        if (err) {
+            console.error('Error fetching admin comments:', err);
+            return res.status(500).json({ success: false, message: 'Failed to fetch comments' });
+        }
+
+        const formatComments = (comments) => {
+            const map = {};
+            const roots = [];
+
+            comments.forEach(c => {
+                map[c.id] = {
+                    ...c,
+                    date: c.created_at,
+                    replies: []
+                };
+            });
+
+            comments.forEach(c => {
+                if (c.parent_id && map[c.parent_id]) {
+                    map[c.parent_id].replies.push(map[c.id]);
+                } else {
+                    roots.push(map[c.id]);
+                }
+            });
+
+            return roots;
+        };
+
+        const nestedComments = formatComments(results);
+        res.json({ success: true, comments: nestedComments });
+    });
+};
+
 // Post a new comment or reply
 exports.postComment = (req, res) => {
     const { id } = req.params; // news_item_id
-    const { name, email, text, parentId } = req.body;
+    const { name, email, text, parentId, website } = req.body;
+
+    // Honeypot check
+    if (website) {
+        console.warn(`[SECURITY] Bot detected in comment form from IP: ${req.ip}`);
+        return res.status(200).json({ success: true, message: 'Comment submitted for moderation' });
+    }
 
     if (!name || !email || !text) {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -248,5 +341,71 @@ exports.postComment = (req, res) => {
         };
 
         res.status(201).json({ success: true, message: 'Comment posted successfully. Awaiting approval.', comment: newComment });
+    });
+};
+
+// --- Admin Comment Moderation ---
+
+// Get all comments for admin review
+exports.getAllCommentsAdmin = (req, res) => {
+    const query = `
+        SELECT c.*, n.title as news_title 
+        FROM comments c 
+        LEFT JOIN news n ON c.news_item_id = n.id 
+        ORDER BY c.created_at DESC
+    `;
+
+    db.query(query, (err, results) => {
+        if (err) {
+            console.error('Error fetching all comments for admin:', err);
+            return res.status(500).json({ success: false, message: 'Failed to fetch comments' });
+        }
+        res.json({ success: true, comments: results });
+    });
+};
+
+// Approve a comment
+exports.approveComment = (req, res) => {
+    const { id } = req.params;
+    const query = 'UPDATE comments SET approved = 1 WHERE id = ?';
+
+    db.query(query, [id], (err, result) => {
+        if (err) {
+            console.error('Error approving comment:', err);
+            return res.status(500).json({ success: false, message: 'Failed to approve comment' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Comment not found' });
+        }
+
+        // Log Activity
+        const auditLogController = require('./auditLogController');
+        auditLogController.logActivity(req, 'APPROVE', 'Comment', id);
+
+        res.json({ success: true, message: 'Comment approved successfully' });
+    });
+};
+
+// Delete a comment
+exports.deleteComment = (req, res) => {
+    const { id } = req.params;
+    const query = 'DELETE FROM comments WHERE id = ?';
+
+    db.query(query, [id], (err, result) => {
+        if (err) {
+            console.error('Error deleting comment:', err);
+            return res.status(500).json({ success: false, message: 'Failed to delete comment' });
+        }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Comment not found' });
+        }
+
+        // Log Activity
+        const auditLogController = require('./auditLogController');
+        auditLogController.logActivity(req, 'DELETE', 'Comment', id);
+
+        res.json({ success: true, message: 'Comment deleted successfully' });
     });
 };

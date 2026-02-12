@@ -1,0 +1,641 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+.id-card-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: fit-content;
+    margin: 0 auto;
+    transform-origin: top center;
+}
+
+.id-card-front,
+.id-card-back {
+    width: 500px;
+    height: 310px;
+    background: #ffffff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 15px 40px rgba(26, 54, 93, 0.15);
+    position: relative;
+    border: 1px solid rgba(26, 54, 93, 0.1);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #333;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.custom-bg-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+    opacity: 1;
+}
+
+.id-card-content-overlay {
+    position: relative;
+    z-index: 10;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.id-card-side-back .id-card-content-overlay {
+    background: transparent;
+    /* Make background very visible on the back */
+}
+
+/* Header Section */
+.id-card-header {
+    height: 85px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 25px;
+    color: #1a365d;
+    position: relative;
+    z-index: 11;
+}
+
+.header-logo-left img,
+.header-logo-right img {
+    height: 50px;
+    width: auto;
+    object-fit: contain;
+}
+
+.header-text {
+    text-align: center;
+    flex: 1;
+}
+
+.header-text h2 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    line-height: 0.85;
+    color: #1a365d;
+    font-family: 'Roboto', sans-serif;
+    /* Correct Branding Navy */
+    text-transform: uppercase;
+    font-family: 'Inter', sans-serif;
+}
+
+.header-text h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 16px;
+
+    /* font famliy ROBOTO */
+    font-family: 'Roboto', sans-serif;
+    /* Wider spacing to match image */
+    color: #335f71;
+    /* Correct Branding Teal */
+    text-transform: uppercase;
+    line-height: 1;
+    margin-top: 4px;
+    margin-right: -14px;
+    /* Offset last letter spacing for centering */
+}
+
+.header-text .amharic-text {
+    margin: 0;
+    font-size: 9px;
+    font-weight: 500;
+    color: #2d5e71;
+    /* Same Branding Teal */
+    margin-top: 3px;
+    letter-spacing: 1.2px;
+}
+
+.id-type-subtitle {
+    margin: 5px 0 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #2c5282;
+    /* Premium Blue */
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.3px;
+    text-align: center;
+}
+
+/* Body Section */
+.id-card-body {
+    display: flex;
+    padding: 15px 20px;
+    height: 220px;
+    position: relative;
+}
+
+.profile-section {
+    width: 130px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.photo-container {
+    width: 120px;
+    height: 150px;
+    background: #ffffff;
+    border: 2px solid #ffffff;
+    /* White border instead of padding */
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    position: relative;
+    z-index: 2;
+}
+
+.photo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* Change to cover to fill the box */
+    object-position: center 20%;
+    /* Keep face in view */
+    filter: brightness(1.02) contrast(1.02);
+}
+
+.photo-placeholder i {
+    font-size: 65px;
+    color: #cbd5e0;
+}
+
+.id-number-label {
+    text-align: center;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 2px;
+}
+
+.id-number-label .info-value {
+    font-size: 13px;
+    /* Reduced ID size as requested */
+    font-weight: 700;
+}
+
+.mini {
+    font-size: 8px !important;
+    margin-bottom: 2px !important;
+}
+
+.barcode-section-front {
+    margin-top: 5px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.id-no-text {
+    font-size: 10px;
+    font-weight: 400;
+    color: #666;
+}
+
+.details-section {
+    flex: 1;
+    padding-left: 10px;
+    padding-right: 110px;
+    display: flex;
+    flex-direction: column;
+    padding-top: 5px;
+    border-left: 3px solid rgba(2, 132, 199, 0.2);
+    margin-left: 45px;
+    /* Further increased to provide balanced white space */
+}
+
+.details-section .name-block {
+    margin-bottom: 15px;
+    /* Cleaned up and increased for better distribution */
+}
+
+.primary-val {
+    font-size: 16px;
+    font-weight: 900;
+    font-family: 'Outfit', sans-serif;
+    color: #0f172a;
+    /* Deep Navy for Amharic */
+    text-transform: uppercase;
+    display: block;
+    line-height: 1.1;
+}
+
+/* English Value - Attractive & Colored */
+.english-value.primary-val {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0284c7;
+    /* Vibrant Sky Blue */
+    margin-top: 1px;
+    letter-spacing: 0.3px;
+}
+
+.name-long .primary-val {
+    font-size: 13px;
+}
+
+.name-long .english-value.primary-val {
+    font-size: 10.5px;
+}
+
+.secondary-val {
+    font-size: 12px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    color: #0f172a;
+    /* Deep Navy for Amharic */
+    display: block;
+    line-height: 1.1;
+}
+
+/* English Position - Attractive & Colored */
+.english-value.secondary-val {
+    font-size: 10px;
+    font-weight: 700;
+    color: #0891b2;
+    /* Premium Cyan */
+    margin-top: 1px;
+    letter-spacing: 0.2px;
+}
+
+.pos-long .secondary-val {
+    font-size: 10px;
+}
+
+.pos-long .english-value.secondary-val {
+    font-size: 8.5px;
+}
+
+.name-stack,
+.pos-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* Added gap to cover more vertical space */
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 2px;
+}
+
+.detail-labels {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* Tighter gap as requested by arrows */
+    margin-bottom: 0px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    /* Structural divider like image */
+}
+
+.small-date {
+    font-size: 11px !important;
+    /* Reduced Issued/Expires size */
+}
+
+.extra-small {
+    font-size: 10px !important;
+}
+
+.date-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.ethiopian-date {
+    font-size: 10px;
+    font-weight: 600;
+    color: #56a2c1;
+    /* Match Brand Teal */
+    margin-top: 1px;
+}
+
+.barcode-section {
+    position: absolute;
+    bottom: 8px;
+    right: 20px;
+    transform-origin: right bottom;
+}
+
+.amharic-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #1a365d;
+    /* Dark Navy for Labels */
+    margin-bottom: 0px;
+}
+
+.info-value {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1a365d;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.amharic-value {
+    font-size: 16px;
+    margin-bottom: -2px;
+}
+
+.english-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a365d;
+    opacity: 1;
+}
+
+.mini-val {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a365d;
+    display: block;
+    line-height: 1.1;
+}
+
+.bottom-value-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 2px;
+}
+
+.detail-row .detail-item {
+    min-width: 100px;
+}
+
+.detail-row .detail-labels {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 2px;
+}
+
+.detail-row .amharic-label {
+    font-size: 8px;
+    color: #1a365d;
+    font-weight: 700;
+}
+
+.detail-row .english-label {
+    font-size: 8.5px;
+    color: #0284c7;
+    /* Vibrant Blue */
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+/* General English Labels */
+.english-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: #0891b2;
+    /* Cyan Accent */
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+/* Ensure Expires stays Red */
+.detail-item.text-danger .english-label,
+.detail-item.text-danger .amharic-label,
+.detail-item.text-danger {
+    color: #dc3545 !important;
+}
+
+.small-date {
+    font-size: 13px !important;
+    font-weight: 800;
+    color: #1a365d;
+}
+
+.ethiopian-date {
+    font-size: 10px;
+    font-weight: 600;
+    color: #7f8c8d;
+    /* Muted gray/teal as seen in image */
+    margin-top: 0px;
+    display: block;
+}
+
+/* QR Section */
+.qr-section {
+    position: absolute;
+    right: 20px;
+    top: 22px;
+    /* Aligned with details section */
+}
+
+/* Back Side Styles */
+.id-card-back {
+    display: flex;
+    flex-direction: column;
+}
+
+.back-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Move whole group to the center */
+    padding: 20px 30px 10px;
+    gap: 30px;
+}
+
+.back-header .header-text {
+    flex: none;
+    text-align: left;
+    /* Align text to the left */
+}
+
+.back-header .header-logo-right img {
+    height: 75px;
+    /* Increased size to fit text block height */
+    width: auto;
+}
+
+.back-logo img {
+    height: 65px;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+}
+
+.back-header-text h2 {
+    font-size: 26px;
+    font-weight: 500;
+    margin: 0;
+    color: #1a365d;
+    letter-spacing: 1px;
+    line-height: 0.65;
+    text-transform: uppercase;
+}
+
+.back-header-text h3 {
+    font-size: 13px;
+    font-weight: 500;
+    margin: 0;
+    letter-spacing: 14px;
+    color: #56a2c1;
+    text-transform: uppercase;
+    line-height: 1;
+    margin-top: 4px;
+    margin-right: -14px;
+}
+
+.back-header-text .amharic-text-back {
+    margin: 3px 0 0;
+    font-size: 9px;
+    font-weight: 500;
+    color: #56a2c1;
+    text-align: center;
+    letter-spacing: 0.2px;
+}
+
+.back-contact-info {
+    background: linear-gradient(135deg, #0C7C92 0%, #2c5282 100%);
+    color: white;
+    padding: 15px 35px;
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: 15px 20px;
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.15);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.info-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+.icon-box {
+    width: 26px;
+    height: 26px;
+    background: #ffffff;
+    /* Solid white background for icons to pop */
+    border: none;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.icon-box:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.icon-box svg {
+    width: 13px;
+    height: 13px;
+    color: #0C7C92;
+    /* Vibrant colored icon */
+}
+
+.signature-section {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0 30px;
+}
+
+.signature-container {
+    text-align: center;
+    width: 180px;
+}
+
+.signature-line {
+    border-bottom: 2px solid #1a365d;
+    margin-bottom: 8px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.signature-container img {
+    height: 50px;
+    max-width: 100%;
+}
+
+.signature-label {
+    font-size: 10px;
+}
+
+.gov-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a365d;
+    margin-top: 2px;
+}
+
+.sig-text {
+    font-size: 9px;
+    font-weight: 500;
+    color: #666;
+}
+
+.org-stamp {
+    position: absolute;
+    right: 30px;
+    bottom: 20px;
+    width: 85px;
+    height: 85px;
+    object-fit: contain;
+    transform: rotate(-10deg);
+    opacity: 0.85;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* Print Overrides */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+
+    .id-card-wrapper,
+    .id-card-wrapper * {
+        visibility: visible;
+    }
+
+    .id-card-wrapper {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: none !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+}

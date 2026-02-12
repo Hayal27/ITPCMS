@@ -16,7 +16,7 @@ const PagesPage: React.FC = () => {
   const [pages, setPages] = useState<Page[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { token } = useAuth(); // Get token if needed for API calls
+  // const { user } = useAuth(); // Get user if needed
 
   // Simulate fetching pages from an API
   useEffect(() => {
@@ -25,9 +25,8 @@ const PagesPage: React.FC = () => {
       setError(null);
       try {
         // --- Replace with actual API call ---
-        // const response = await fetch('/api/pages', {
-        //   headers: { 'Authorization': `Bearer ${token}` }
-        // });
+        // const data = await request<Page[]>('/pages');
+        // setPages(data);
         // if (!response.ok) throw new Error('Failed to fetch pages');
         // const data: Page[] = await response.json();
         // setPages(data);
@@ -52,7 +51,7 @@ const PagesPage: React.FC = () => {
     };
 
     fetchPages();
-  }, [token]); // Re-fetch if token changes (e.g., after login)
+  }, []); // Re-fetch if token changes (e.g., after login)
 
   const handleDelete = (pageId: string | number) => {
     // --- Add API call logic here ---
@@ -82,86 +81,86 @@ const PagesPage: React.FC = () => {
       {/* Wrapper to center the content block */}
       <div className="d-flex justify-content-center">
         <div className="w-100"> {/* Optional: Constrain width if needed, e.g., max-width: 1200px; or use Bootstrap width classes */}
-            {/* Loading State */}
-            {isLoading && (
-                <div className="text-center mt-5"> {/* Added margin top for better spacing when centered */}
-                <div className="spinner-border text-primary" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                </div>
-                </div>
-            )}
+          {/* Loading State */}
+          {isLoading && (
+            <div className="text-center mt-5"> {/* Added margin top for better spacing when centered */}
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          )}
 
-            {/* Error State */}
-            {error && (
-                <div className="alert alert-danger mt-4 w-75 mx-auto" role="alert"> {/* Centered alert */}
-                Error: {error}
-                </div>
-            )}
+          {/* Error State */}
+          {error && (
+            <div className="alert alert-danger mt-4 w-75 mx-auto" role="alert"> {/* Centered alert */}
+              Error: {error}
+            </div>
+          )}
 
-            {/* Content Table */}
-            {!isLoading && !error && (
-                <div className="card shadow-sm w-100"> {/* Ensure card takes full width of its centered container */}
-                <div className="card-body">
-                    <div className="table-responsive">
-                    <table className="table table-hover table-sm fs-10">
-                        <thead className="table-light">
+          {/* Content Table */}
+          {!isLoading && !error && (
+            <div className="card shadow-sm w-100"> {/* Ensure card takes full width of its centered container */}
+              <div className="card-body">
+                <div className="table-responsive">
+                  <table className="table table-hover table-sm fs-10">
+                    <thead className="table-light">
+                      <tr>
+                        <th scope="col">Title</th>
+                        <th scope="col">Author</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Date Published</th>
+                        <th scope="col">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pages.length > 0 ? (
+                        pages.map((page) => (
+                          <tr key={page.id}>
+                            <td>
+                              <Link to={`/content/pages/edit/${page.id}`}>
+                                <strong>{page.title}</strong>
+                              </Link>
+                            </td>
+                            <td>{page.author}</td>
+                            <td>
+                              <span className={`badge bg-${page.status === 'published' ? 'success' : page.status === 'draft' ? 'secondary' : 'danger'}`}>
+                                {page.status.charAt(0).toUpperCase() + page.status.slice(1)}
+                              </span>
+                            </td>
+                            <td>{page.datePublished}</td>
+                            <td>
+                              <Link
+                                to={`/content/pages/edit/${page.id}`}
+                                className="btn btn-sm btn-outline-primary me-1"
+                                title="Edit"
+                              >
+                                <i className="fas fa-pencil-alt"></i>
+                              </Link>
+                              <button
+                                onClick={() => handleDelete(page.id)}
+                                className="btn btn-sm btn-outline-danger"
+                                title="Delete"
+                              >
+                                <i className="fas fa-trash-alt"></i>
+                              </button>
+                              {/* Add View button if applicable */}
+                              {/* <Link to={`/page/${page.slug}`} target="_blank" className="btn btn-sm btn-outline-info ms-1" title="View"><i className="fas fa-eye"></i></Link> */}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
                         <tr>
-                            <th scope="col">Title</th>
-                            <th scope="col">Author</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Date Published</th>
-                            <th scope="col">Actions</th>
+                          <td colSpan={5} className="text-center">No pages found.</td>
                         </tr>
-                        </thead>
-                        <tbody>
-                        {pages.length > 0 ? (
-                            pages.map((page) => (
-                            <tr key={page.id}>
-                                <td>
-                                <Link to={`/content/pages/edit/${page.id}`}>
-                                    <strong>{page.title}</strong>
-                                </Link>
-                                </td>
-                                <td>{page.author}</td>
-                                <td>
-                                <span className={`badge bg-${page.status === 'published' ? 'success' : page.status === 'draft' ? 'secondary' : 'danger'}`}>
-                                    {page.status.charAt(0).toUpperCase() + page.status.slice(1)}
-                                </span>
-                                </td>
-                                <td>{page.datePublished}</td>
-                                <td>
-                                <Link
-                                    to={`/content/pages/edit/${page.id}`}
-                                    className="btn btn-sm btn-outline-primary me-1"
-                                    title="Edit"
-                                >
-                                    <i className="fas fa-pencil-alt"></i>
-                                </Link>
-                                <button
-                                    onClick={() => handleDelete(page.id)}
-                                    className="btn btn-sm btn-outline-danger"
-                                    title="Delete"
-                                >
-                                    <i className="fas fa-trash-alt"></i>
-                                </button>
-                                {/* Add View button if applicable */}
-                                {/* <Link to={`/page/${page.slug}`} target="_blank" className="btn btn-sm btn-outline-info ms-1" title="View"><i className="fas fa-eye"></i></Link> */}
-                                </td>
-                            </tr>
-                            ))
-                        ) : (
-                            <tr>
-                            <td colSpan={5} className="text-center">No pages found.</td>
-                            </tr>
-                        )}
-                        </tbody>
-                    </table>
-                    </div>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-                {/* Optional: Add pagination controls here */}
-                {/* <div className="card-footer">Pagination...</div> */}
-                </div>
-            )}
+              </div>
+              {/* Optional: Add pagination controls here */}
+              {/* <div className="card-footer">Pagination...</div> */}
+            </div>
+          )}
         </div>
       </div>
     </div>

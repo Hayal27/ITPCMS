@@ -5,32 +5,9 @@ import 'react-quill/dist/quill.snow.css';
 import axios, { AxiosRequestConfig, AxiosError } from 'axios';
 // import './NewsEventsAdmin.css'; // Removed in favor of Tailwind
 
-export const BACKEND_URL = "http://localhost:5005";
+import { BACKEND_URL, request } from '../../services/apiService';
 
-// --- API Request Helper ---
-export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
-    try {
-        const response = await axios({
-            url: `${BACKEND_URL}/api${url}`,
-            ...options,
-            headers: { ...options.headers },
-        });
-        return response.data as T;
-    } catch (error) {
-        const axiosError = error as AxiosError;
-        if (axiosError.response) {
-            const errorData = axiosError.response.data as { message?: string; error?: string };
-            console.error('API Error Response:', errorData);
-            throw new Error(errorData?.message || errorData?.error || `Request failed with status ${axiosError.response.status}`);
-        } else if (axiosError.request) {
-            console.error('API No Response:', axiosError.request);
-            throw new Error('No response received from server. Please check your network connection and backend server.');
-        } else {
-            console.error('API Request Setup Error:', axiosError.message);
-            throw new Error(axiosError.message || 'An unknown error occurred during the request setup.');
-        }
-    }
-}
+export { BACKEND_URL, request };
 
 // --- Interfaces ---
 export interface NewsItem {

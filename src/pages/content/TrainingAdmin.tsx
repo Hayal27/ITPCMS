@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaChalkboardTeacher, FaPlus, FaEdit, FaTrash, FaSearch, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaLink } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
+import { BACKEND_URL, fixImageUrl } from '../../services/apiService';
 
-const BACKEND_URL = "http://localhost:5005/api/trainings";
+const API_PATH = `${BACKEND_URL}/api/trainings`;
 
 interface Training {
     id: number;
@@ -57,7 +58,7 @@ const TrainingAdmin: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(BACKEND_URL);
+            const res = await axios.get(API_PATH);
             setTrainings(res.data);
         } catch (err) {
             setError('Failed to fetch trainings');
@@ -75,9 +76,22 @@ const TrainingAdmin: React.FC = () => {
             const formData = new FormData();
             Object.keys(form).forEach(key => {
                 const value = (form as any)[key];
+
                 if (key === 'tags') {
-                    formData.append(key, JSON.stringify(value || []));
-                } else if (value !== undefined && value !== null) {
+                    // Sanitize tags array
+                    let tagsArray: string[] = [];
+                    if (Array.isArray(value)) {
+                        tagsArray = value.map((tag: string) => DOMPurify.sanitize(tag.trim()));
+                    } else if (typeof value === 'string') {
+                        tagsArray = value.split(',').map((tag: string) => DOMPurify.sanitize(tag.trim()));
+                    }
+                    formData.append(key, JSON.stringify(tagsArray));
+                }
+                else if (typeof value === 'string') {
+                    // Sanitize all string fields
+                    formData.append(key, DOMPurify.sanitize(value));
+                }
+                else if (value !== undefined && value !== null) {
                     formData.append(key, value);
                 }
             });
@@ -87,12 +101,12 @@ const TrainingAdmin: React.FC = () => {
             }
 
             if (editingTraining) {
-                await axios.put(`${BACKEND_URL}/${editingTraining.id}`, formData, {
+                await axios.put(`${API_PATH}/${editingTraining.id}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Training updated successfully');
             } else {
-                await axios.post(BACKEND_URL, formData, {
+                await axios.post(API_PATH, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Training created successfully');
@@ -112,7 +126,7 @@ const TrainingAdmin: React.FC = () => {
     const deleteTraining = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this training?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/${id}`);
+            await axios.delete(`${API_PATH}/${id}`);
             setSuccess('Training deleted successfully');
             fetchData();
         } catch (err) {
@@ -191,7 +205,7 @@ const TrainingAdmin: React.FC = () => {
                                         <div className="flex items-center space-x-3">
                                             <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-gray-700">
                                                 <img
-                                                    src={t.image_url?.startsWith('http') ? t.image_url : `http://localhost:5005${t.image_url}`}
+                                                    src={fixImageUrl(t.image_url) || 'https://via.placeholder.com/150'}
                                                     alt={t.title}
                                                     className="w-full h-full object-cover"
                                                     onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150')}
@@ -321,7 +335,7 @@ const TrainingAdmin: React.FC = () => {
                                         <div className="mt-2 flex flex-col items-center">
                                             <div className="w-full aspect-video rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 flex items-center justify-center relative group">
                                                 {imagePreview || form.image_url ? (
-                                                    <img src={imagePreview || (form.image_url?.startsWith('http') ? form.image_url : `http://localhost:5005${form.image_url}`)} alt="Preview" className="w-full h-full object-cover" />
+                                                    <img src={imagePreview || (fixImageUrl(form.image_url) || '')} alt="Preview" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="text-center p-4">
                                                         <FaPlus className="text-gray-400 mb-2 mx-auto" size={24} />

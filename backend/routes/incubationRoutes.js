@@ -25,15 +25,17 @@ const verifyToken = require('../middleware/verifyToken');
 const { restrictTo } = require('../middleware/roleMiddleware');
 
 // Programs
+const { hasMenuPermission } = require('../middleware/menuPermissionMiddleware');
+
 router.get('/programs', incubationController.getPrograms);
-router.post('/programs', verifyToken, restrictTo(1), incubationController.createProgram);
-router.put('/programs/:id', verifyToken, restrictTo(1), incubationController.updateProgram);
-router.delete('/programs/:id', verifyToken, restrictTo(1), incubationController.deleteProgram);
+router.post('/programs', verifyToken, hasMenuPermission('/content/incubation'), incubationController.createProgram);
+router.put('/programs/:id', verifyToken, hasMenuPermission('/content/incubation'), incubationController.updateProgram);
+router.delete('/programs/:id', verifyToken, hasMenuPermission('/content/incubation'), incubationController.deleteProgram);
 
 // Success Stories
 router.get('/stories', incubationController.getSuccessStories);
-router.post('/stories', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.createSuccessStory);
-router.put('/stories/:id', verifyToken, restrictTo(1), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.updateSuccessStory);
-router.delete('/stories/:id', verifyToken, restrictTo(1), incubationController.deleteSuccessStory);
+router.post('/stories', verifyToken, hasMenuPermission('/content/incubation'), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.createSuccessStory);
+router.put('/stories/:id', verifyToken, hasMenuPermission('/content/incubation'), upload.fields([{ name: 'image', maxCount: 1 }]), incubationController.updateSuccessStory);
+router.delete('/stories/:id', verifyToken, hasMenuPermission('/content/incubation'), incubationController.deleteSuccessStory);
 
 module.exports = router;

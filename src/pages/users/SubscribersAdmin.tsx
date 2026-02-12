@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './SubscribersAdmin.css';
+import { request } from '../../services/apiService';
 
 interface Subscriber {
     id: number;
@@ -21,14 +22,7 @@ const SubscribersAdmin: React.FC = () => {
 
     const fetchSubscribers = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:5005/api/subscribers', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
-
-            const data = await response.json();
+            const data = await request<{ success: boolean, data: Subscriber[] }>('/subscribers', { method: 'GET' });
             if (data.success) {
                 setSubscribers(data.data);
             }

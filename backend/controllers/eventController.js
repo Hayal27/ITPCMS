@@ -53,8 +53,8 @@ exports.createEvent = (req, res) => {
     }
 
     const query = `
-    INSERT INTO events (title, date, time, venue, image, description, featured, registrationLink, capacity, youtubeUrl, imageAltText, tags)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO events (title, date, time, venue, image, description, featured, registrationLink, capacity, youtubeUrl, imageAltText, tags, createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
     const values = [
         title, date, time, venue, JSON.stringify(imagePaths), description,
@@ -70,6 +70,16 @@ exports.createEvent = (req, res) => {
         }
 
         auditLogController.logActivity(req, 'CREATE', 'Event', result.insertId, { title });
+
+        // Notify Subscribers
+        const subscriptionController = require('./subscriptionController');
+        subscriptionController.notifySubscribers('event', {
+            id: result.insertId,
+            title,
+            date,
+            description
+        }).catch(err => console.error('Notification Error:', err));
+
         res.json({ success: true, message: 'Event created successfully', id: result.insertId });
     });
 };
@@ -108,8 +118,28 @@ exports.updateEvent = (req, res) => {
             console.error('Error updating event:', err);
             return res.status(500).json({ success: false, message: 'Failed to update event' });
         }
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ success: false, message: 'Event not found' });
+        }
+
         auditLogController.logActivity(req, 'UPDATE', 'Event', id, { title });
-        res.json({ success: true, message: 'Event updated successfully' });
+
+        // Fetch the updated item to return it to the frontend
+        const fetchQuery = 'SELECT * FROM events WHERE id = ?';
+        db.query(fetchQuery, [id], (fetchErr, fetchResults) => {
+            if (fetchErr || fetchResults.length === 0) {
+                return res.json({ success: true, message: 'Event updated successfully' });
+            }
+
+            const event = fetchResults[0];
+            try {
+                event.image = JSON.parse(event.image);
+            } catch (e) { }
+            event.tags = event.tags ? JSON.parse(event.tags) : [];
+
+            res.json({ success: true, message: 'Event updated successfully', ...event });
+        });
     });
 };
 

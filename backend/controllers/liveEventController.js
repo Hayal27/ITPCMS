@@ -1,5 +1,28 @@
 const db = require('../models/db');
 const dailyService = require('../services/dailyService');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+const validator = require('validator');
+
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
+
+// Security Utility: Strip ALL HTML tags
+const cleanString = (val) => {
+    if (typeof val !== 'string') return val;
+    return DOMPurify.sanitize(val, { ALLOWED_TAGS: [] }).trim();
+};
+
+// Production-Safe Error Handler
+const sendError = (res, error, status = 500) => {
+    console.error(`[LIVE EVENT SECURITY] Error:`, error);
+    res.status(status).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production'
+            ? 'A secure processing error occurred. Detailed logs are available to admins.'
+            : error.message
+    });
+};
 
 // Manual promise wrapper
 const query = (sql, args) => {
@@ -14,7 +37,6 @@ const query = (sql, args) => {
 // Get the active (Live or most recent/upcoming) event
 exports.getActiveEvent = async (req, res) => {
     try {
-        // Find published events. Preference: Live > Upcoming > Ended
         const events = await query(`
             SELECT * FROM live_events 
             WHERE status IN ('published', 'live') 
@@ -30,18 +52,13 @@ exports.getActiveEvent = async (req, res) => {
         `);
 
         if (!events.length) {
-            return res.status(404).json({ message: 'No active live events found' });
+            return res.status(404).json({ success: false, message: 'No active live events found' });
         }
 
         const event = events[0];
-
-        // Fetch agenda
         const agenda = await query('SELECT * FROM live_event_agenda WHERE event_id = ? ORDER BY time ASC', [event.id]);
-
-        // Fetch speakers
         const speakers = await query('SELECT * FROM live_event_speakers WHERE event_id = ?', [event.id]);
 
-        // Construct full config matching frontend LiveEventConfig
         const config = {
             id: event.id.toString(),
             title: event.title,
@@ -68,7 +85,7 @@ exports.getActiveEvent = async (req, res) => {
                 estimatedViewers: event.estimated_viewers
             },
             agenda: agenda.map(a => ({
-                time: a.time.substring(0, 5), // HH:mm
+                time: a.time.substring(0, 5),
                 title: a.title,
                 speaker: a.speaker
             })),
@@ -83,17 +100,18 @@ exports.getActiveEvent = async (req, res) => {
 
         res.status(200).json(config);
     } catch (error) {
-        console.error('Error fetching active live event:', error);
-        res.status(500).json({ message: 'Error fetching active live event', error: error.message });
+        sendError(res, error);
     }
 };
 
 // Get single event
 exports.getEventById = async (req, res) => {
     try {
-        const { id } = req.params;
-        const events = await query('SELECT * FROM live_events WHERE id = ?', [id]);
-        if (!events.length) return res.status(404).json({ message: 'Event not found' });
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
+        const events = await query('SELECT * FROM live_events WHERE id = ?', [idNum]);
+        if (!events.length) return res.status(404).json({ success: false, message: 'Event not found' });
 
         const event = events[0];
         const agenda = await query('SELECT * FROM live_event_agenda WHERE event_id = ? ORDER BY time ASC', [event.id]);
@@ -127,7 +145,7 @@ exports.getEventById = async (req, res) => {
             speakers: speakers.map(s => ({ name: s.name, role: s.role, photo: s.photo }))
         });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
@@ -137,71 +155,89 @@ exports.getEvents = async (req, res) => {
         const events = await query('SELECT * FROM live_events ORDER BY event_date DESC');
         res.status(200).json(events);
     } catch (error) {
-        console.error('Error fetching live events:', error);
-        res.status(500).json({ message: 'Error fetching live events', error: error.message });
+        sendError(res, error);
     }
 };
 
 // Create Event
 exports.createEvent = async (req, res) => {
     try {
-        const { title, subtitle, description, event_date, start_time, end_time, stream_url, location, status } = req.body;
+        let { title, subtitle, description, event_date, start_time, end_time, stream_url, location, status } = req.body;
+
+        if (!title || validator.isEmpty(title)) {
+            return res.status(400).json({ success: false, message: 'Title is required' });
+        }
+
+        title = cleanString(title);
+        subtitle = cleanString(subtitle || '');
+        description = cleanString(description || '');
+        location = cleanString(location || '');
+        stream_url = cleanString(stream_url || '');
+
         const result = await query(
             'INSERT INTO live_events (title, subtitle, description, event_date, start_time, end_time, stream_url, location, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [title, subtitle, description, event_date, start_time, end_time, stream_url, location, status || 'draft']
         );
-        res.status(201).json({ message: 'Event created', id: result.insertId });
+        res.status(201).json({ success: true, message: 'Event created', id: result.insertId });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
 // Update Event
 exports.updateEvent = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { title, subtitle, description, event_date, start_time, end_time, stream_url, location, status, is_streaming, is_recording } = req.body;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
+        let { title, subtitle, description, event_date, start_time, end_time, stream_url, location, status, is_streaming, is_recording } = req.body;
+
+        title = cleanString(title || '');
+        subtitle = cleanString(subtitle || '');
+        description = cleanString(description || '');
+        location = cleanString(location || '');
+        stream_url = cleanString(stream_url || '');
+
         await query(
             'UPDATE live_events SET title = ?, subtitle = ?, description = ?, event_date = ?, start_time = ?, end_time = ?, stream_url = ?, location = ?, status = ?, is_streaming = ?, is_recording = ? WHERE id = ?',
-            [title, subtitle, description, event_date, start_time, end_time, stream_url, location, status, is_streaming, is_recording, id]
+            [title, subtitle, description, event_date, start_time, end_time, stream_url, location, status, is_streaming ? 1 : 0, is_recording ? 1 : 0, idNum]
         );
-        res.status(200).json({ message: 'Event updated successfully' });
+        res.status(200).json({ success: true, message: 'Event updated successfully' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
 // Toggle Stream State
 exports.toggleStreaming = async (req, res) => {
     try {
-        const { id } = req.params;
-        const { state } = req.body; // true or false
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
+        const { state } = req.body;
         const status = state ? 'live' : 'published';
-        const actual_start = state ? 'actual_start_time = NOW(), ' : '';
 
         let dailyRoomUrl = null;
 
-        // If starting broadcast, create a Daily room ONLY if API key is present
         if (state && process.env.DAILY_API_KEY) {
             try {
-                const room = await dailyService.createBroadcastRoom(id);
+                const room = await dailyService.createBroadcastRoom(idNum);
                 dailyRoomUrl = room.url;
-                console.log('Created Daily room:', dailyRoomUrl);
             } catch (error) {
                 console.error('Failed to create Daily room:', error.message);
             }
         }
 
-        // Update stream_url if we created a Daily room
-        if (dailyRoomUrl) {
+        // Use strict parameterized logic to avoid string concatenation in SQL
+        if (state) {
             await query(
-                `UPDATE live_events SET ${actual_start} is_streaming = ?, status = ?, stream_url = ? WHERE id = ?`,
-                [state, status, dailyRoomUrl, id]
+                `UPDATE live_events SET actual_start_time = NOW(), is_streaming = ?, status = ?, stream_url = ? WHERE id = ?`,
+                [1, status, dailyRoomUrl || req.body.stream_url || '', idNum]
             );
         } else {
             await query(
-                `UPDATE live_events SET ${actual_start} is_streaming = ?, status = ? WHERE id = ?`,
-                [state, status, id]
+                `UPDATE live_events SET is_streaming = ?, status = ? WHERE id = ?`,
+                [0, status, idNum]
             );
         }
 
@@ -212,41 +248,47 @@ exports.toggleStreaming = async (req, res) => {
             daily_room_url: dailyRoomUrl
         });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
 // Toggle Recording
 exports.toggleRecording = async (req, res) => {
     try {
-        const { id } = req.params;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
         const { state } = req.body;
-        await query('UPDATE live_events SET is_recording = ? WHERE id = ?', [state, id]);
-        res.status(200).json({ success: true, is_recording: state });
+        await query('UPDATE live_events SET is_recording = ? WHERE id = ?', [state ? 1 : 0, idNum]);
+        res.status(200).json({ success: true, is_recording: !!state });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
 // Update Signaling Data
 exports.updateSignaling = async (req, res) => {
     try {
-        const { id } = req.params;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
         const { signaling_data } = req.body;
-        await query('UPDATE live_events SET signaling_data = ? WHERE id = ?', [signaling_data, id]);
+        await query('UPDATE live_events SET signaling_data = ? WHERE id = ?', [JSON.stringify(signaling_data), idNum]);
         res.status(200).json({ success: true });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };
 
 // Delete Event
 exports.deleteEvent = async (req, res) => {
     try {
-        const { id } = req.params;
-        await query('DELETE FROM live_events WHERE id = ?', [id]);
-        res.status(200).json({ message: 'Event deleted successfully' });
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ success: false, message: 'Invalid ID' });
+
+        await query('DELETE FROM live_events WHERE id = ?', [idNum]);
+        res.status(200).json({ success: true, message: 'Event deleted successfully' });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        sendError(res, error);
     }
 };

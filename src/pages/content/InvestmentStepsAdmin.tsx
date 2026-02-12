@@ -2,8 +2,11 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaPlus, FaEdit, FaTrash, FaSearch, FaFileAlt } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
 
-const BACKEND_URL = "http://localhost:5005/api/invest";
+import { BACKEND_URL, fixImageUrl } from '../../services/apiService';
+
+const API_PATH = `${BACKEND_URL}/api/invest`;
 
 interface InvestmentStep {
     id: number;
@@ -46,8 +49,8 @@ const InvestmentStepsAdmin: React.FC = () => {
         setLoading(true);
         try {
             const [stepsRes, resourcesRes] = await Promise.all([
-                axios.get(`${BACKEND_URL}/steps`),
-                axios.get(`${BACKEND_URL}/resources`)
+                axios.get(`${API_PATH}/steps`),
+                axios.get(`${API_PATH}/resources`)
             ]);
             setSteps(stepsRes.data);
             setResources(resourcesRes.data);
@@ -58,22 +61,23 @@ const InvestmentStepsAdmin: React.FC = () => {
         }
     };
 
+
     /* --- STEPS HANDLERS --- */
     const handleStepSubmit = async (e: FormEvent) => {
         e.preventDefault();
         const formData = new FormData();
         formData.append('step_number', String(stepForm.step_number));
-        formData.append('title', stepForm.title || '');
-        formData.append('description', stepForm.description || '');
-        formData.append('status', stepForm.status || 'active');
+        formData.append('title', DOMPurify.sanitize(stepForm.title || ''));
+        formData.append('description', DOMPurify.sanitize(stepForm.description || ''));
+        formData.append('status', DOMPurify.sanitize(stepForm.status || 'active'));
         if (stepFile) formData.append('doc', stepFile);
         else if (editingStep?.doc_url) formData.append('doc_url', editingStep.doc_url);
 
         try {
             if (editingStep) {
-                await axios.put(`${BACKEND_URL}/steps/${editingStep.id}`, formData);
+                await axios.put(`${API_PATH}/steps/${editingStep.id}`, formData);
             } else {
-                await axios.post(`${BACKEND_URL}/steps`, formData);
+                await axios.post(`${API_PATH}/steps`, formData);
             }
             setShowStepForm(false);
             setEditingStep(null);
@@ -89,7 +93,7 @@ const InvestmentStepsAdmin: React.FC = () => {
     const deleteStep = async (id: number) => {
         if (!window.confirm('Delete this step?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/steps/${id}`);
+            await axios.delete(`${API_PATH}/steps/${id}`);
             fetchData();
         } catch (error) {
             console.error(error);
@@ -100,14 +104,14 @@ const InvestmentStepsAdmin: React.FC = () => {
     const handleResourceSubmit = async (e: FormEvent) => {
         e.preventDefault();
         const formData = new FormData();
-        formData.append('label', resourceForm.label || '');
-        formData.append('icon', resourceForm.icon || 'FaFileAlt');
-        formData.append('type', resourceForm.type || 'document');
+        formData.append('label', DOMPurify.sanitize(resourceForm.label || ''));
+        formData.append('icon', DOMPurify.sanitize(resourceForm.icon || 'FaFileAlt'));
+        formData.append('type', DOMPurify.sanitize(resourceForm.type || 'document'));
         if (resourceFile) formData.append('file', resourceFile);
         else return alert('File is required for new resources'); // Simple validation
 
         try {
-            await axios.post(`${BACKEND_URL}/resources`, formData);
+            await axios.post(`${API_PATH}/resources`, formData);
             setShowResourceForm(false);
             setResourceFile(null);
             setResourceForm({ label: '', icon: 'FaFileAlt', type: 'document' });
@@ -121,7 +125,7 @@ const InvestmentStepsAdmin: React.FC = () => {
     const deleteResource = async (id: number) => {
         if (!window.confirm('Delete this resource?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/resources/${id}`);
+            await axios.delete(`${API_PATH}/resources/${id}`);
             fetchData();
         } catch (error) {
             console.error(error);
@@ -185,7 +189,7 @@ const InvestmentStepsAdmin: React.FC = () => {
                             <div key={res.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow border dark:border-gray-700 flex flex-col items-center text-center">
                                 <div className="text-4xl text-teal-500 mb-2"><FaFileAlt /></div> {/* Icon rendering simplified for admin */}
                                 <h4 className="font-bold dark:text-white">{res.label}</h4>
-                                <a href={res.file_url.startsWith('http') ? res.file_url : `http://localhost:5005${res.file_url}`} target="_blank" rel="noreferrer" className="text-blue-500 text-xs mt-2 underline">View File</a>
+                                <a href={fixImageUrl(res.file_url) || '#'} target="_blank" rel="noreferrer" className="text-blue-500 text-xs mt-2 underline">View File</a>
                                 <button onClick={() => deleteResource(res.id)} className="mt-4 text-red-500 text-xs uppercase font-bold hover:underline">Remove</button>
                             </div>
                         ))}

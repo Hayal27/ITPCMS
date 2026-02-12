@@ -2,7 +2,9 @@ import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaRocket, FaLightbulb, FaPlus, FaEdit, FaTrash, FaSearch, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
-const BACKEND_URL = "http://localhost:5005/api/incubation";
+import { BACKEND_URL, fixImageUrl } from '../../services/apiService';
+
+const API_PATH = `${BACKEND_URL}/api/incubation`;
 
 interface Program {
     id: number;
@@ -20,6 +22,8 @@ interface SuccessStory {
     stats: { number: string; label: string }[];
     link: string;
 }
+
+import DOMPurify from 'dompurify';
 
 const IncubationAdmin: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'programs' | 'stories'>('programs');
@@ -61,7 +65,7 @@ const IncubationAdmin: React.FC = () => {
         setLoading(true);
         try {
             const endpoint = activeTab === 'programs' ? '/programs' : '/stories';
-            const response = await axios.get(`${BACKEND_URL}${endpoint}`);
+            const response = await axios.get(`${API_PATH}${endpoint}`);
             if (activeTab === 'programs') setPrograms(response.data);
             else setStories(response.data);
         } catch (err: any) {
@@ -75,11 +79,20 @@ const IncubationAdmin: React.FC = () => {
         e.preventDefault();
         setLoading(true);
         try {
+            // Sanitize Program Data
+            const sanitizedForm = {
+                ...programForm,
+                title: DOMPurify.sanitize(programForm.title),
+                icon: DOMPurify.sanitize(programForm.icon),
+                description: DOMPurify.sanitize(programForm.description),
+                link: DOMPurify.sanitize(programForm.link)
+            };
+
             if (editingId) {
-                await axios.put(`${BACKEND_URL}/programs/${editingId}`, programForm);
+                await axios.put(`${API_PATH}/programs/${editingId}`, sanitizedForm);
                 setSuccess('Program updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/programs`, programForm);
+                await axios.post(`${API_PATH}/programs`, sanitizedForm);
                 setSuccess('Program created successfully');
             }
             setShowForm(false);
@@ -98,18 +111,35 @@ const IncubationAdmin: React.FC = () => {
         setLoading(true);
         try {
             const formData = new FormData();
-            formData.append('title', storyForm.title);
-            formData.append('description', JSON.stringify(storyForm.description.filter(d => d.trim() !== '')));
-            formData.append('stats', JSON.stringify(storyForm.stats.filter(s => s.number && s.label)));
-            formData.append('link', storyForm.link);
+
+            // Sanitize main fields
+            formData.append('title', DOMPurify.sanitize(storyForm.title));
+
+            // Sanitize Description Array
+            const sanitizedDescription = storyForm.description
+                .filter(d => d.trim() !== '')
+                .map(d => DOMPurify.sanitize(d));
+            formData.append('description', JSON.stringify(sanitizedDescription));
+
+            // Sanitize Stats Array
+            const sanitizedStats = storyForm.stats
+                .filter(s => s.number && s.label)
+                .map(s => ({
+                    number: DOMPurify.sanitize(s.number),
+                    label: DOMPurify.sanitize(s.label)
+                }));
+            formData.append('stats', JSON.stringify(sanitizedStats));
+
+            formData.append('link', DOMPurify.sanitize(storyForm.link));
+
             if (imageFile) formData.append('image', imageFile);
             else if (storyForm.image_url) formData.append('image_url', storyForm.image_url);
 
             if (editingId) {
-                await axios.put(`${BACKEND_URL}/stories/${editingId}`, formData);
+                await axios.put(`${API_PATH}/stories/${editingId}`, formData);
                 setSuccess('Story updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/stories`, formData);
+                await axios.post(`${API_PATH}/stories`, formData);
                 setSuccess('Story created successfully');
             }
             setShowForm(false);
@@ -128,7 +158,7 @@ const IncubationAdmin: React.FC = () => {
         setLoading(true);
         try {
             const endpoint = activeTab === 'programs' ? `/programs/${id}` : `/stories/${id}`;
-            await axios.delete(`${BACKEND_URL}${endpoint}`);
+            await axios.delete(`${API_PATH}${endpoint}`);
             setSuccess('Deleted successfully');
             fetchData();
         } catch (err: any) {
@@ -280,7 +310,7 @@ const IncubationAdmin: React.FC = () => {
                                                         />
                                                     </div>
                                                     {imagePreview && (
-                                                        <img src={imagePreview.startsWith('blob') ? imagePreview : `http://localhost:5005${imagePreview}`} className="w-24 h-24 rounded-xl object-cover shadow-md" alt="Preview" />
+                                                        <img src={imagePreview.startsWith('blob') ? imagePreview : (fixImageUrl(imagePreview) || '')} className="w-24 h-24 rounded-xl object-cover shadow-md" alt="Preview" />
                                                     )}
                                                 </div>
                                             </div>
@@ -411,7 +441,7 @@ const IncubationAdmin: React.FC = () => {
                                 stories.map(story => (
                                     <div key={story.id} className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700 group hover:shadow-xl transition-all">
                                         <div className="flex gap-6">
-                                            <img src={story.image_url.startsWith('http') ? story.image_url : `http://localhost:5005${story.image_url}`} className="w-32 h-40 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-all" alt={story.title} />
+                                            <img src={fixImageUrl(story.image_url) || ''} className="w-32 h-40 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-all" alt={story.title} />
                                             <div className="flex-1">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <h3 className="text-xl font-bold dark:text-white">{story.title}</h3>

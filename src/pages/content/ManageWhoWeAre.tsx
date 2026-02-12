@@ -10,6 +10,7 @@ import {
     deleteWhoWeAreSection,
     WhoWeAreSection
 } from '../../services/apiService';
+import DOMPurify from 'dompurify';
 import './ManageWhoWeAre.css';
 
 const ManageWhoWeAre: React.FC = () => {
@@ -92,14 +93,26 @@ const ManageWhoWeAre: React.FC = () => {
         setEditingSection(null);
     };
 
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Sanitize inputs
+            const cleanFormData = {
+                ...formData,
+                title: DOMPurify.sanitize(formData.title || '', { ALLOWED_TAGS: [] }),
+                subtitle: DOMPurify.sanitize(formData.subtitle || '', { ALLOWED_TAGS: [] }),
+                section_type: DOMPurify.sanitize(formData.section_type || 'section', { ALLOWED_TAGS: [] }) as any,
+                // For content (Rich Text), allow default safe tags
+                content: DOMPurify.sanitize(formData.content || ''),
+                image_url: DOMPurify.sanitize(formData.image_url || '', { ALLOWED_TAGS: [] })
+            };
+
             if (editingSection) {
-                await updateWhoWeAreSection(editingSection.id, formData);
+                await updateWhoWeAreSection(editingSection.id, cleanFormData);
                 showAlert('success', 'Section updated successfully');
             } else {
-                await addWhoWeAreSection(formData);
+                await addWhoWeAreSection(cleanFormData);
                 showAlert('success', 'Section added successfully');
             }
             handleCloseModal();

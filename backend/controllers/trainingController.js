@@ -1,7 +1,10 @@
-
 const db = require('../models/db');
 const fs = require('fs');
 const path = require('path');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 const query = (sql, args) => {
     return new Promise((resolve, reject) => {
@@ -10,6 +13,23 @@ const query = (sql, args) => {
             resolve(rows);
         });
     });
+};
+
+// Production-Safe Error Handler
+const sendError = (res, error, status = 500) => {
+    console.error(`[TRAINING SECURITY] Error:`, error);
+    res.status(status).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production'
+            ? 'A secure processing error occurred. Detailed logs are available to admins.'
+            : error.message
+    });
+};
+
+// Backend Sanitizer
+const cleanString = (val) => {
+    if (typeof val !== 'string') return val;
+    return DOMPurify.sanitize(val, { ALLOWED_TAGS: [] }).trim();
 };
 
 exports.getAllTrainings = async (req, res) => {
@@ -21,37 +41,54 @@ exports.getAllTrainings = async (req, res) => {
         }));
         res.status(200).json(formattedTrainings);
     } catch (error) {
-        console.error('Error fetching trainings:', error);
-        res.status(500).json({ message: 'Error fetching trainings', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.getTrainingById = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-        const [training] = await query('SELECT * FROM training_workshops WHERE id = ?', [id]);
+        const [training] = await query('SELECT * FROM training_workshops WHERE id = ?', [idNum]);
         if (!training) return res.status(404).json({ message: 'Training not found' });
 
         training.tags = training.tags ? JSON.parse(training.tags) : [];
         res.status(200).json(training);
     } catch (error) {
-        console.error('Error fetching training:', error);
-        res.status(500).json({ message: 'Error fetching training', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.createTraining = async (req, res) => {
     try {
-        const {
+        let {
             title, event_date, duration, location, type,
             instructor, capacity, summary, description, tags, link, status
         } = req.body;
+
+        // Sanitize
+        title = cleanString(title);
+        duration = cleanString(duration);
+        location = cleanString(location);
+        type = cleanString(type);
+        instructor = cleanString(instructor);
+        summary = cleanString(summary);
+        description = cleanString(description);
 
         const image_url = req.file ? `/uploads/trainings/${req.file.filename}` : req.body.image_url;
 
         let parsedTags = tags;
         if (typeof tags === 'string') {
-            try { parsedTags = JSON.parse(tags); } catch (e) { parsedTags = tags.split(',').map(s => s.trim()); }
+            try {
+                parsedTags = JSON.parse(tags);
+            } catch (e) {
+                parsedTags = tags.split(',').map(s => cleanString(s.trim()));
+            }
+        }
+        // Sanitize tags array
+        if (Array.isArray(parsedTags)) {
+            parsedTags = parsedTags.map(t => cleanString(t));
         }
 
         const result = await query(
@@ -67,24 +104,42 @@ exports.createTraining = async (req, res) => {
 
         res.status(201).json({ message: 'Training created successfully', id: result.insertId });
     } catch (error) {
-        console.error('Error creating training:', error);
-        res.status(500).json({ message: 'Error creating training', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.updateTraining = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-        const {
+        let {
             title, event_date, duration, location, type,
             instructor, capacity, summary, description, tags, link, status
         } = req.body;
+
+        // Sanitize
+        title = cleanString(title);
+        duration = cleanString(duration);
+        location = cleanString(location);
+        type = cleanString(type);
+        instructor = cleanString(instructor);
+        summary = cleanString(summary);
+        description = cleanString(description);
 
         const image_url = req.file ? `/uploads/trainings/${req.file.filename}` : req.body.image_url;
 
         let parsedTags = tags;
         if (typeof tags === 'string') {
-            try { parsedTags = JSON.parse(tags); } catch (e) { parsedTags = tags.split(',').map(s => s.trim()); }
+            try {
+                parsedTags = JSON.parse(tags);
+            } catch (e) {
+                parsedTags = tags.split(',').map(s => cleanString(s.trim()));
+            }
+        }
+        // Sanitize tags array
+        if (Array.isArray(parsedTags)) {
+            parsedTags = parsedTags.map(t => cleanString(t));
         }
 
         await query(
@@ -94,25 +149,25 @@ exports.updateTraining = async (req, res) => {
             WHERE id = ?`,
             [
                 title, image_url, event_date, duration, location, type,
-                instructor, capacity, summary, description, JSON.stringify(parsedTags || []), link, status, id
+                instructor, capacity, summary, description, JSON.stringify(parsedTags || []), link, status, idNum
             ]
         );
 
         res.status(200).json({ message: 'Training updated successfully' });
     } catch (error) {
-        console.error('Error updating training:', error);
-        res.status(500).json({ message: 'Error updating training', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.deleteTraining = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-
         // Find training to get image path before deleting
-        const [training] = await query('SELECT image_url FROM training_workshops WHERE id = ?', [id]);
+        const [training] = await query('SELECT image_url FROM training_workshops WHERE id = ?', [idNum]);
 
-        await query('DELETE FROM training_workshops WHERE id = ?', [id]);
+        await query('DELETE FROM training_workshops WHERE id = ?', [idNum]);
 
         // Delete associated file if it exists
         if (training && training.image_url) {
@@ -124,7 +179,6 @@ exports.deleteTraining = async (req, res) => {
 
         res.status(200).json({ message: 'Training deleted successfully' });
     } catch (error) {
-        console.error('Error deleting training:', error);
-        res.status(500).json({ message: 'Error deleting training', error: error.message });
+        sendError(res, error);
     }
 };

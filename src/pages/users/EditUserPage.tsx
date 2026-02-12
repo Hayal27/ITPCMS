@@ -69,6 +69,16 @@ const EditUserPage: React.FC = () => {
         setError(null);
         if (!userId) return;
 
+        // Strong password policy check (only if password is provided)
+        if (formData.password && formData.password.trim() !== "") {
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+            if (!passwordRegex.test(formData.password)) {
+                setError("New password must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)");
+                window.scrollTo(0, 0);
+                return;
+            }
+        }
+
         try {
             await updateUser(userId, formData);
             alert('User updated successfully!');
@@ -119,6 +129,9 @@ const EditUserPage: React.FC = () => {
                             <div className="col-md-6 mb-3">
                                 <label>Password (Leave blank to keep current)</label>
                                 <input type="password" className="form-control" name="password" value={formData.password} onChange={handleChange} placeholder="New Password" />
+                                <small className="form-text text-muted">
+                                    Min 8 characters, with Uppercase, Lowercase, Number & Special Character (@$!%*?&).
+                                </small>
                             </div>
                         </div>
                         <div className="row">

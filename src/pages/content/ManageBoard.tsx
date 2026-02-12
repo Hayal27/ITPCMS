@@ -6,8 +6,10 @@ import {
     addBoardMember,
     updateBoardMember,
     deleteBoardMember,
-    BoardMember
+    BoardMember,
+    fixImageUrl
 } from '../../services/apiService';
+import DOMPurify from 'dompurify';
 import './ManageBoard.css';
 
 const ManageBoard: React.FC = () => {
@@ -106,23 +108,44 @@ const ManageBoard: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
+            // Security: Frontend Sanitization
+            const cleanName = DOMPurify.sanitize(formData.name, { ALLOWED_TAGS: [] }).trim();
+            const cleanEnglishName = DOMPurify.sanitize(formData.english_name || '', { ALLOWED_TAGS: [] }).trim();
+            const cleanPosition = DOMPurify.sanitize(formData.position, { ALLOWED_TAGS: [] }).trim();
+            const cleanBio = DOMPurify.sanitize(formData.bio || '', { ALLOWED_TAGS: [] }).trim();
+            const cleanLinkedin = DOMPurify.sanitize(formData.linkedin || '', { ALLOWED_TAGS: [] }).trim();
+            const cleanTwitter = DOMPurify.sanitize(formData.twitter || '', { ALLOWED_TAGS: [] }).trim();
+
+            if (!cleanName || !cleanPosition) {
+                showAlert('danger', 'Name and Position cannot be empty after sanitization.');
+                return;
+            }
+
             let dataToSend: any;
 
             if (imageFile) {
                 // Use FormData for file upload
                 const formDataToSend = new FormData();
-                formDataToSend.append('name', formData.name);
-                formDataToSend.append('english_name', formData.english_name);
-                formDataToSend.append('position', formData.position);
-                formDataToSend.append('bio', formData.bio);
-                formDataToSend.append('linkedin', formData.linkedin);
-                formDataToSend.append('twitter', formData.twitter);
+                formDataToSend.append('name', cleanName);
+                formDataToSend.append('english_name', cleanEnglishName);
+                formDataToSend.append('position', cleanPosition);
+                formDataToSend.append('bio', cleanBio);
+                formDataToSend.append('linkedin', cleanLinkedin);
+                formDataToSend.append('twitter', cleanTwitter);
                 formDataToSend.append('order_index', formData.order_index.toString());
                 formDataToSend.append('imageFile', imageFile);
                 dataToSend = formDataToSend;
             } else {
                 // Use JSON for URL-based image
-                dataToSend = formData;
+                dataToSend = {
+                    ...formData,
+                    name: cleanName,
+                    english_name: cleanEnglishName,
+                    position: cleanPosition,
+                    bio: cleanBio,
+                    linkedin: cleanLinkedin,
+                    twitter: cleanTwitter
+                };
             }
 
             if (editingMember) {
@@ -326,7 +349,7 @@ const ManageBoard: React.FC = () => {
                             {imagePreview && (
                                 <div className="mt-3">
                                     <img
-                                        src={imagePreview}
+                                        src={imagePreview.startsWith('blob:') ? imagePreview : (fixImageUrl(imagePreview) || '')}
                                         alt="Preview"
                                         style={{ maxWidth: '200px', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
                                     />

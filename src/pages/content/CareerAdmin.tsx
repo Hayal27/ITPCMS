@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { request, BACKEND_URL, fixImageUrl } from '../../services/apiService';
 import {
     FaBriefcase, FaUserGraduate, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes,
     FaEye, FaEnvelope, FaFilePdf, FaFilter, FaSearch, FaHistory, FaClock, FaSatellite, FaTimesCircle, FaTools, FaLinkedinIn, FaLink, FaBuilding, FaGraduationCap,
@@ -48,7 +48,6 @@ ChartJS.register(
     ArcElement
 );
 
-const API_BASE = "http://localhost:5005/api/careers";
 
 interface Job {
     id: number;
@@ -115,6 +114,13 @@ const CareerAdmin: React.FC = () => {
     const [endDate, setEndDate] = useState("");
     const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
+    // Analytics Filtering States
+    const [analyticsJobFilter, setAnalyticsJobFilter] = useState("all");
+    const [analyticsStatusFilter, setAnalyticsStatusFilter] = useState("all");
+    const [analyticsStartDate, setAnalyticsStartDate] = useState("");
+    const [analyticsEndDate, setAnalyticsEndDate] = useState("");
+    const [analyticsTrendDays, setAnalyticsTrendDays] = useState(7);
+
     // Form States
     const [showJobForm, setShowJobForm] = useState(false);
     const [editingJob, setEditingJob] = useState<Job | null>(null);
@@ -162,8 +168,8 @@ const CareerAdmin: React.FC = () => {
     const fetchJobs = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_BASE}/admin/jobs`);
-            setJobs(res.data);
+            const data = await request<Job[]>('/careers/admin/jobs');
+            setJobs(data);
         } catch (err) {
             console.error("Error fetching jobs", err);
         } finally {
@@ -174,8 +180,8 @@ const CareerAdmin: React.FC = () => {
     const fetchApplications = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(`${API_BASE}/admin/applications`);
-            setApplications(res.data);
+            const data = await request<Application[]>('/careers/admin/applications');
+            setApplications(data);
         } catch (err) {
             console.error("Error fetching apps", err);
         } finally {
@@ -193,9 +199,9 @@ const CareerAdmin: React.FC = () => {
             };
 
             if (editingJob) {
-                await axios.put(`${API_BASE}/admin/jobs/${editingJob.id}`, data);
+                await request(`/careers/admin/jobs/${editingJob.id}`, { method: 'PUT', data });
             } else {
-                await axios.post(`${API_BASE}/admin/jobs`, data);
+                await request('/careers/admin/jobs', { method: 'POST', data });
             }
             setShowJobForm(false);
             setEditingJob(null);
@@ -207,16 +213,19 @@ const CareerAdmin: React.FC = () => {
 
     const updateAppStatus = async (appId: number, status: string, formData: any) => {
         try {
-            await axios.put(`${API_BASE}/admin/applications/${appId}/status`, {
-                status,
-                adminNotes: formData.adminNotes,
-                appointmentDate: formData.date,
-                appointmentTime: formData.time,
-                appointmentLocation: formData.location,
-                appointmentLat: formData.lat,
-                appointmentLng: formData.lng,
-                appointmentMapLink: formData.mapLink,
-                appointmentDetails: formData.details
+            await request(`/careers/admin/applications/${appId}/status`, {
+                method: 'PUT',
+                data: {
+                    status,
+                    adminNotes: formData.adminNotes,
+                    appointmentDate: formData.date,
+                    appointmentTime: formData.time,
+                    appointmentLocation: formData.location,
+                    appointmentLat: formData.lat,
+                    appointmentLng: formData.lng,
+                    appointmentMapLink: formData.mapLink,
+                    appointmentDetails: formData.details
+                }
             });
             alert("Status updated and applicant notified.");
             setShowStatusModal(false);
@@ -232,17 +241,20 @@ const CareerAdmin: React.FC = () => {
         if (selectedAppIds.length === 0) return;
         try {
             setLoading(true);
-            await axios.post(`${API_BASE}/admin/applications/bulk-status`, {
-                ids: selectedAppIds,
-                status: targetStatus,
-                adminNotes: appointmentForm.adminNotes,
-                appointmentDate: appointmentForm.date,
-                appointmentTime: appointmentForm.time,
-                appointmentLocation: appointmentForm.location,
-                appointmentLat: appointmentForm.lat,
-                appointmentLng: appointmentForm.lng,
-                appointmentMapLink: appointmentForm.mapLink,
-                appointmentDetails: appointmentForm.details
+            await request('/careers/admin/applications/bulk-status', {
+                method: 'POST',
+                data: {
+                    ids: selectedAppIds,
+                    status: targetStatus,
+                    adminNotes: appointmentForm.adminNotes,
+                    appointmentDate: appointmentForm.date,
+                    appointmentTime: appointmentForm.time,
+                    appointmentLocation: appointmentForm.location,
+                    appointmentLat: appointmentForm.lat,
+                    appointmentLng: appointmentForm.lng,
+                    appointmentMapLink: appointmentForm.mapLink,
+                    appointmentDetails: appointmentForm.details
+                }
             });
             alert(`Successfully updated ${selectedAppIds.length} applications.`);
             setSelectedAppIds([]);
@@ -301,6 +313,20 @@ const CareerAdmin: React.FC = () => {
             return matchesSearch && matchesStatus && matchesJob && matchesSkill &&
                 matchesGender && matchesLocation && matchesUniv && matchesQual &&
                 matchesGpa && matchesExp && matchesStartDate && matchesEndDate;
+        });
+    };
+
+    const getFilteredAnalyticsApplications = () => {
+        return applications.filter(app => {
+            const matchesJob = analyticsJobFilter === 'all' || app.jobTitle === analyticsJobFilter;
+            const matchesStatus = analyticsStatusFilter === 'all' || app.status === analyticsStatusFilter;
+
+            // Date Filtering
+            const appDate = new Date(app.applied_at);
+            const matchesStartDate = !analyticsStartDate || appDate >= new Date(analyticsStartDate);
+            const matchesEndDate = !analyticsEndDate || appDate <= new Date(analyticsEndDate + 'T23:59:59');
+
+            return matchesJob && matchesStatus && matchesStartDate && matchesEndDate;
         });
     };
 
@@ -916,165 +942,284 @@ const CareerAdmin: React.FC = () => {
             }
 
             {
-                activeTab === 'analytics' && (
-                    <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
-                                        <FaInbox size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-2xl font-black dark:text-white">{applications.length}</h4>
-                                        <p className="text-[10px] uppercase font-bold text-gray-400">Total Applications</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600">
-                                        <FaHistory size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-2xl font-black dark:text-white">{applications.filter(a => a.status === 'reviewing').length}</h4>
-                                        <p className="text-[10px] uppercase font-bold text-gray-400">Reviewing</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600">
-                                        <FaCheckDouble size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-2xl font-black dark:text-white">{applications.filter(a => ['shortlisted', 'written_exam', 'interview_shortlisted', 'interviewing'].includes(a.status)).length}</h4>
-                                        <p className="text-[10px] uppercase font-bold text-gray-400">Shortlisted / Exam</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600">
-                                        <FaCheckCircle size={20} />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-2xl font-black dark:text-white">{applications.filter(a => a.status === 'offered').length}</h4>
-                                        <p className="text-[10px] uppercase font-bold text-gray-400">Offered Position</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                activeTab === 'analytics' && (() => {
+                    const filteredApps = getFilteredAnalyticsApplications();
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            {/* Applications by Job Role (Bar Chart) */}
+                    return (
+                        <div className="space-y-8">
+                            {/* Analytics Filters */}
+                            <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+                                <div className="p-8 border-b dark:border-gray-800 bg-gray-50/50 dark:bg-slate-800/50">
+                                    <div className="flex flex-col gap-6">
+                                        <div className="flex items-center justify-between">
+                                            <h2 className="font-black text-sm uppercase tracking-widest flex items-center gap-2 shrink-0">
+                                                <FaFilter className="text-blue-600" /> Analytics Filters
+                                            </h2>
+                                            <button
+                                                onClick={() => {
+                                                    setAnalyticsJobFilter("all");
+                                                    setAnalyticsStatusFilter("all");
+                                                    setAnalyticsStartDate("");
+                                                    setAnalyticsEndDate("");
+                                                }}
+                                                className="text-[10px] font-black uppercase text-red-600 hover:text-red-700 transition flex items-center gap-2"
+                                            >
+                                                <FaTimes /> Clear Filters
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
+                                            <select
+                                                value={analyticsJobFilter}
+                                                onChange={(e) => setAnalyticsJobFilter(e.target.value)}
+                                                className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-bold uppercase outline-none"
+                                            >
+                                                <option value="all">Job Role: All</option>
+                                                {[...new Set(applications.map(a => a.jobTitle))].map(role => (
+                                                    <option key={role} value={role}>{role}</option>
+                                                ))}
+                                            </select>
+
+                                            <select
+                                                value={analyticsStatusFilter}
+                                                onChange={(e) => setAnalyticsStatusFilter(e.target.value)}
+                                                className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-bold uppercase outline-none"
+                                            >
+                                                <option value="all">Status: All</option>
+                                                <option value="pending">Pending</option>
+                                                <option value="reviewing">Reviewing</option>
+                                                <option value="shortlisted">Shortlisted</option>
+                                                <option value="written_exam">Written Exam</option>
+                                                <option value="interview_shortlisted">Interview Shortlisted</option>
+                                                <option value="interviewing">Interviewing</option>
+                                                <option value="offered">Offered</option>
+                                                <option value="rejected">Rejected</option>
+                                            </select>
+
+                                            <div className="relative">
+                                                <label className="absolute -top-3 left-2 text-[8px] font-bold text-gray-400 bg-white dark:bg-slate-900 px-1">Applied After</label>
+                                                <input
+                                                    type="date"
+                                                    value={analyticsStartDate}
+                                                    onChange={(e) => setAnalyticsStartDate(e.target.value)}
+                                                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                            </div>
+
+                                            <div className="relative">
+                                                <label className="absolute -top-3 left-2 text-[8px] font-bold text-gray-400 bg-white dark:bg-slate-900 px-1">Applied Before</label>
+                                                <input
+                                                    type="date"
+                                                    value={analyticsEndDate}
+                                                    onChange={(e) => setAnalyticsEndDate(e.target.value)}
+                                                    className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-bold outline-none"
+                                                />
+                                            </div>
+
+                                            <select
+                                                value={analyticsTrendDays}
+                                                onChange={(e) => setAnalyticsTrendDays(Number(e.target.value))}
+                                                className="w-full px-4 py-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] font-bold uppercase outline-none"
+                                            >
+                                                <option value={7}>Trend: 7 Days</option>
+                                                <option value={14}>Trend: 14 Days</option>
+                                                <option value={30}>Trend: 30 Days</option>
+                                                <option value={60}>Trend: 60 Days</option>
+                                                <option value={90}>Trend: 90 Days</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 text-[10px] font-bold text-gray-500">
+                                            <span className="bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-3 py-1 rounded-lg">
+                                                Showing {filteredApps.length} of {applications.length} applications
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Statistics Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600">
+                                            <FaInbox size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-black dark:text-white">{filteredApps.length}</h4>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">Total Applications</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center text-orange-600">
+                                            <FaHistory size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-black dark:text-white">{filteredApps.filter(a => a.status === 'reviewing').length}</h4>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">Reviewing</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600">
+                                            <FaCheckDouble size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-black dark:text-white">{filteredApps.filter(a => ['shortlisted', 'written_exam', 'interview_shortlisted', 'interviewing'].includes(a.status)).length}</h4>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">Shortlisted / Exam</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-green-600">
+                                            <FaCheckCircle size={20} />
+                                        </div>
+                                        <div>
+                                            <h4 className="text-2xl font-black dark:text-white">{filteredApps.filter(a => a.status === 'offered').length}</h4>
+                                            <p className="text-[10px] uppercase font-bold text-gray-400">Offered Position</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Charts */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Applications by Job Role (Bar Chart) */}
+                                <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm h-[400px]">
+                                    <div className="mb-6 flex justify-between items-center">
+                                        <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                                            <FaChartBar className="text-blue-600" /> Applications by Role
+                                        </h3>
+                                    </div>
+                                    <div className="h-full pb-8">
+                                        <Bar
+                                            data={{
+                                                labels: [...new Set(filteredApps.map(a => a.jobTitle))],
+                                                datasets: [{
+                                                    label: 'Applicants',
+                                                    data: [...new Set(filteredApps.map(a => a.jobTitle))].map(title => filteredApps.filter(a => a.jobTitle === title).length),
+                                                    backgroundColor: '#3b82f6',
+                                                    borderRadius: 8,
+                                                }]
+                                            }}
+                                            options={{
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: { legend: { display: false } },
+                                                scales: {
+                                                    y: { grid: { display: false }, border: { display: false }, ticks: { precision: 0 } },
+                                                    x: { grid: { display: false }, border: { display: false } }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Application Status (Doughnut) */}
+                                <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm h-[400px]">
+                                    <div className="mb-6 flex justify-between items-center">
+                                        <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                                            <FaChartPie className="text-pink-600" /> Pipeline Status
+                                        </h3>
+                                    </div>
+                                    <div className="h-full pb-8 relative flex items-center justify-center">
+                                        <Doughnut
+                                            data={{
+                                                labels: ['Pending', 'Reviewing', 'Exam/Interview', 'Rejected', 'Offered'],
+                                                datasets: [{
+                                                    data: [
+                                                        filteredApps.filter(a => a.status === 'pending').length,
+                                                        filteredApps.filter(a => a.status === 'reviewing').length,
+                                                        filteredApps.filter(a => ['shortlisted', 'written_exam', 'interview_shortlisted', 'interviewing'].includes(a.status)).length,
+                                                        filteredApps.filter(a => a.status === 'rejected').length,
+                                                        filteredApps.filter(a => a.status === 'offered').length
+                                                    ],
+                                                    backgroundColor: ['#94a3b8', '#fb923c', '#4f46e5', '#ef4444', '#16a34a'],
+                                                    borderWidth: 0
+                                                }]
+                                            }}
+                                            options={{
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                cutout: '70%',
+                                                plugins: {
+                                                    legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10, weight: 'bold' } } }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Application Trends Line Chart */}
                             <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm h-[400px]">
                                 <div className="mb-6 flex justify-between items-center">
                                     <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-                                        <FaChartBar className="text-blue-600" /> Applications by Role
+                                        <FaHistory className="text-purple-600" /> Application Trends (Last {analyticsTrendDays} Days)
                                     </h3>
                                 </div>
                                 <div className="h-full pb-8">
-                                    <Bar
+                                    <Line
                                         data={{
-                                            labels: [...new Set(applications.map(a => a.jobTitle))],
-                                            datasets: [{
-                                                label: 'Applicants',
-                                                data: [...new Set(applications.map(a => a.jobTitle))].map(title => applications.filter(a => a.jobTitle === title).length),
-                                                backgroundColor: '#3b82f6',
-                                                borderRadius: 8,
-                                            }]
-                                        }}
-                                        options={{
-                                            responsive: true,
-                                            maintainAspectRatio: false,
-                                            plugins: { legend: { display: false } },
-                                            scales: {
-                                                y: { grid: { display: false }, border: { display: false } },
-                                                x: { grid: { display: false }, border: { display: false } }
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Application Status (Doughnut) */}
-                            <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm h-[400px]">
-                                <div className="mb-6 flex justify-between items-center">
-                                    <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-                                        <FaChartPie className="text-pink-600" /> Pipeline Status
-                                    </h3>
-                                </div>
-                                <div className="h-full pb-8 relative flex items-center justify-center">
-                                    <Doughnut
-                                        data={{
-                                            labels: ['Pending', 'Reviewing', 'Exam/Interview', 'Rejected', 'Offered'],
-                                            datasets: [{
-                                                data: [
-                                                    applications.filter(a => a.status === 'pending').length,
-                                                    applications.filter(a => a.status === 'reviewing').length,
-                                                    applications.filter(a => ['shortlisted', 'written_exam', 'interview_shortlisted', 'interviewing'].includes(a.status)).length,
-                                                    applications.filter(a => a.status === 'rejected').length,
-                                                    applications.filter(a => a.status === 'offered').length
-                                                ],
-                                                backgroundColor: ['#94a3b8', '#fb923c', '#4f46e5', '#ef4444', '#16a34a'],
-                                                borderWidth: 0
-                                            }]
-                                        }}
-                                        options={{
-                                            responsive: true,
-                                            maintainAspectRatio: false,
-                                            cutout: '70%',
-                                            plugins: {
-                                                legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10, weight: 'bold' } } }
-                                            }
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-gray-100 dark:border-gray-800 shadow-sm h-[400px]">
-                            <div className="mb-6 flex justify-between items-center">
-                                <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-                                    <FaHistory className="text-purple-600" /> Application Trends (Last 7 Days)
-                                </h3>
-                            </div>
-                            <div className="h-full pb-8">
-                                <Line
-                                    data={{
-                                        labels: Array.from({ length: 7 }, (_, i) => {
-                                            const d = new Date();
-                                            d.setDate(d.getDate() - i);
-                                            return d.toLocaleDateString();
-                                        }).reverse(),
-                                        datasets: [{
-                                            label: 'New Applications',
-                                            data: Array.from({ length: 7 }, (_, i) => {
+                                            labels: Array.from({ length: analyticsTrendDays }, (_, i) => {
                                                 const d = new Date();
                                                 d.setDate(d.getDate() - i);
-                                                const dateStr = d.toISOString().split('T')[0];
-                                                return applications.filter(a => a.applied_at.startsWith(dateStr)).length;
+                                                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                                             }).reverse(),
-                                            borderColor: '#8b5cf6',
-                                            backgroundColor: '#8b5cf6',
-                                            tension: 0.4,
-                                            fill: false
-                                        }]
-                                    }}
-                                    options={{
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: {
-                                            y: { grid: { color: '#f1f5f9' }, border: { display: false }, ticks: { precision: 0 } },
-                                            x: { grid: { display: false }, border: { display: false } }
-                                        }
-                                    }}
-                                />
+                                            datasets: [{
+                                                label: 'New Applications',
+                                                data: Array.from({ length: analyticsTrendDays }, (_, i) => {
+                                                    const d = new Date();
+                                                    d.setDate(d.getDate() - i);
+                                                    const dateStr = d.toISOString().split('T')[0];
+                                                    return filteredApps.filter(a => a.applied_at.startsWith(dateStr)).length;
+                                                }).reverse(),
+                                                borderColor: '#8b5cf6',
+                                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                                tension: 0.4,
+                                                fill: true,
+                                                pointBackgroundColor: '#8b5cf6',
+                                                pointBorderColor: '#fff',
+                                                pointBorderWidth: 2,
+                                                pointRadius: 4,
+                                                pointHoverRadius: 6
+                                            }]
+                                        }}
+                                        options={{
+                                            responsive: true,
+                                            maintainAspectRatio: false,
+                                            plugins: {
+                                                legend: { display: false },
+                                                tooltip: {
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                                    padding: 12,
+                                                    titleFont: { size: 12, weight: 'bold' },
+                                                    bodyFont: { size: 11 }
+                                                }
+                                            },
+                                            scales: {
+                                                y: {
+                                                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                                                    border: { display: false },
+                                                    ticks: { precision: 0, font: { size: 10 } }
+                                                },
+                                                x: {
+                                                    grid: { display: false },
+                                                    border: { display: false },
+                                                    ticks: { font: { size: 10 } }
+                                                }
+                                            }
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
-                    </div>
-                )
+                    );
+                })()
             }
 
             {
@@ -1227,7 +1372,7 @@ const CareerAdmin: React.FC = () => {
 
                                         {selectedApp.resume_path && (
                                             <a
-                                                href={`http://localhost:5005/${selectedApp.resume_path}`}
+                                                href={fixImageUrl(selectedApp.resume_path) || '#'}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="block w-full text-center bg-blue-600 hover:bg-slate-900 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all flex items-center justify-center gap-3"

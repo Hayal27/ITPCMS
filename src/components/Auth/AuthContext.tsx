@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
-import Axios from 'axios';
+import axios from 'axios';
+import { registerLogoutCallback, BACKEND_URL } from '../../services/apiService';
 
-// --- Configuration ---
-// Access environment variables using import.meta.env for Vite
-// Ensure VITE_API_URL is defined in your .env file
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5005";
+// Unified API Base URL
+const API_BASE_URL = `${BACKEND_URL}/api`;
+
+console.log(`[AUTH] API Base URL configured as: ${API_BASE_URL}`);
+
+// Configure axios for credentials (cookies)
+axios.defaults.withCredentials = true;
+
 // --- Interfaces ---
 interface User {
     user_id: string | number;
@@ -24,43 +29,24 @@ interface AuthState {
 }
 
 type AuthAction =
-    | { type: 'INITIALIZE'; payload: { user: User | null; token: string | null } }
-    | { type: 'LOGIN'; payload: { user: User; token: string } }
+    | { type: 'INITIALIZE'; payload: { user: User | null } }
+    | { type: 'LOGIN'; payload: { user: User } }
     | { type: 'LOGOUT' }
     | { type: 'SET_LOADING'; payload: boolean };
 
 interface AuthContextProps extends AuthState {
     login: (credentials: Record<string, any>) => Promise<{ success: boolean; message?: string; locked?: boolean }>;
-    logout: () => void;
+    logout: () => Promise<void>;
     dispatch: React.Dispatch<AuthAction>;
 }
 
 // --- Initial State ---
 const getInitialState = (): AuthState => {
-    try {
-        const token = localStorage.getItem('token');
-        const userString = localStorage.getItem('user');
-        const user = userString ? JSON.parse(userString) : null;
-
-        if (token && user) {
-            return {
-                user: user,
-                token: token,
-                isAuthenticated: true,
-                isLoading: true,
-            };
-        }
-    } catch (error) {
-        console.error("Failed to parse auth state from localStorage:", error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-    }
-
     return {
         user: null,
         token: null,
         isAuthenticated: false,
-        isLoading: false,
+        isLoading: true, // Start in loading state until session is verified
     };
 };
 
@@ -68,39 +54,37 @@ const getInitialState = (): AuthState => {
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
     switch (action.type) {
         case 'INITIALIZE':
-            // Set Axios default header only if token is valid during initialization
-            if (action.payload.token) {
-                Axios.defaults.headers.common['Authorization'] = `Bearer ${action.payload.token}`;
-            } else {
-                delete Axios.defaults.headers.common['Authorization'];
+            // Security: Ensure sensitive data is never left in localStorage from legacy versions
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
             }
             return {
                 ...state,
                 user: action.payload.user,
-                token: action.payload.token,
-                isAuthenticated: !!(action.payload.user && action.payload.token),
+                token: null,
+                isAuthenticated: !!action.payload.user,
                 isLoading: false,
             };
         case 'LOGIN':
-            try {
-                localStorage.setItem('token', action.payload.token);
-                localStorage.setItem('user', JSON.stringify(action.payload.user));
-                Axios.defaults.headers.common['Authorization'] = `Bearer ${action.payload.token}`;
-            } catch (error) {
-                console.error("Failed to save auth state to localStorage:", error);
-                // Consider clearing storage if saving fails critically
+            // Security: Ensure sensitive data is never persisted in localStorage
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
             }
             return {
                 ...state,
                 user: action.payload.user,
-                token: action.payload.token,
+                token: null,
                 isAuthenticated: true,
                 isLoading: false,
             };
         case 'LOGOUT':
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            delete Axios.defaults.headers.common['Authorization'];
+            // Security: Ensure sensitive data is explicitly wiped
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+            }
             return {
                 ...state,
                 user: null,
@@ -134,11 +118,17 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // --- Actions ---
     const login = useCallback(async (credentials: Record<string, any>): Promise<{ success: boolean; message?: string; locked?: boolean }> => {
         dispatch({ type: 'SET_LOADING', payload: true });
+        const cleanedCredentials = {
+            ...credentials,
+            user_name: typeof credentials.user_name === 'string' ? credentials.user_name.trim() : credentials.user_name
+        };
         try {
-            const response = await Axios.post<{ success: boolean; token?: string; user?: User; message?: string; locked?: boolean }>(`${API_BASE_URL}/login`, credentials);
-            if (response.data.success && response.data.token && response.data.user) {
-                const { token, user } = response.data;
-                dispatch({ type: 'LOGIN', payload: { user, token } });
+            const response = await axios.post<{ success: boolean; token?: string; user?: User; message?: string; locked?: boolean }>(`${API_BASE_URL}/login`, cleanedCredentials, { withCredentials: true });
+
+
+            if (response.data.success && response.data.user) {
+                const { user } = response.data;
+                dispatch({ type: 'LOGIN', payload: { user } });
                 return { success: true };
             } else {
                 console.error("Login API Error:", response.data.message || 'Unknown login error');
@@ -151,51 +141,94 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
         } catch (error: any) {
             console.error("Login Request Failed:", error);
-            const message = error.response?.data?.message || error.message || "Login failed due to a network or server error.";
-            const locked = error.response?.data?.locked || false;
+
+            // Extract detailed error info
+            const errorData = error.response?.data;
+            const message = errorData?.message || errorData?.error || error.message || "Login failed due to a network or server error.";
+            const locked = errorData?.locked || false;
+
+            console.log(`[AUTH] Login failed: ${message}`, { status: error.response?.status, data: errorData });
+
             dispatch({ type: 'SET_LOADING', payload: false });
             return { success: false, message, locked };
         }
         // No finally block needed as SET_LOADING(false) is handled in error cases and LOGIN action
     }, []); // Keep dependencies empty as dispatch is stable
 
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
+        const userId = state.user?.user_id;
+
+        // Security: Ensure sensitive data is explicitly wiped locally
+        if (typeof window !== 'undefined' && window.localStorage) {
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+        }
+
         dispatch({ type: 'LOGOUT' });
-        // Optional: Add navigation logic here if needed after logout
-    }, []); // Keep dependencies empty
+
+        if (userId) {
+            try {
+                // Notifying the server to clear cookies and revoke token
+                await axios.put(`${API_BASE_URL}/logout/${userId}`, {}, { withCredentials: true });
+            } catch (error) {
+                // We log the error but don't stop the user from being logged out locally
+                console.warn("[AUTH] Server-side logout failed, but local session cleared:", error);
+            }
+        }
+    }, [state.user?.user_id]);
 
     // --- Effects ---
     useEffect(() => {
         const initializeAuth = async () => {
-            // No need to dispatch SET_LOADING here, initial state handles it.
-            const token = localStorage.getItem('token');
-            const userString = localStorage.getItem('user');
-            let user: User | null = null;
+            // Priority: Clear any sensitive legacy data immediately
+            if (typeof window !== 'undefined' && window.localStorage) {
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+            }
 
-            if (token && userString) {
-                try {
-                    user = JSON.parse(userString);
-                    // OPTIONAL: Add backend token validation here
-                    // Example:
-                    // await Axios.get('/validate-token', { headers: { Authorization: `Bearer ${token}` } });
-
-                    // If validation passes (or not implemented), initialize
-                    dispatch({ type: 'INITIALIZE', payload: { user, token } });
-
-                } catch (error) {
-                    console.error("Token validation failed or user data corrupted:", error);
-                    // Token is invalid or user data is corrupt, log out
-                    dispatch({ type: 'LOGOUT' }); // LOGOUT action already sets isLoading to false
+            try {
+                const response = await axios.get<{ success: boolean; user: User }>(`${API_BASE_URL}/check-auth`, { withCredentials: true });
+                if (response.data.success) {
+                    dispatch({ type: 'INITIALIZE', payload: { user: response.data.user } });
+                } else {
+                    dispatch({ type: 'INITIALIZE', payload: { user: null } });
                 }
-            } else {
-                // No token/user found, ensure state reflects this and loading is false
-                dispatch({ type: 'INITIALIZE', payload: { user: null, token: null } });
+            } catch (error) {
+                console.error("[AUTH] Initialization failed:", error);
+                dispatch({ type: 'INITIALIZE', payload: { user: null } });
             }
         };
 
         initializeAuth();
+
+        // Register the logout callback to handle 401 Unauthorized responses (session expiration)
+        registerLogoutCallback(() => {
+            console.warn("[AUTH] Session expired. Executing automatic logout.");
+            logout();
+        });
+
+        // PASSIVE HEARTBEAT: Ping server periodically to detect background expiration
+        const heartbeatInterval = setInterval(async () => {
+            if (state.isAuthenticated) {
+                try {
+                    const response = await axios.get(`${API_BASE_URL}/check-auth`, { withCredentials: true });
+                    if (!response.data.success) {
+                        console.warn("[AUTH] Passive heartbeat detected expired session.");
+                        logout();
+                    }
+                } catch (error: any) {
+                    if (error.response?.status === 401) {
+                        console.warn("[AUTH] Passive heartbeat received 401.");
+                        logout();
+                    }
+                }
+            }
+        }, 120000); // Check every 2 minutes
+
+        return () => clearInterval(heartbeatInterval);
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run only once on mount
+    }, [state.isAuthenticated, logout]); // Run only once on mount, but restart or clear if auth changes
 
     // --- Context Value ---
     const contextValue: AuthContextProps = {

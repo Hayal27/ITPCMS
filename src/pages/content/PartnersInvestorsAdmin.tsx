@@ -1,8 +1,11 @@
 import React, { useState, useEffect, FormEvent } from 'react';
 import axios from 'axios';
 import { FaHandshake, FaBuilding, FaPlus, FaEdit, FaTrash, FaSearch } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
 
-const BACKEND_URL = "http://localhost:5005/api/partners-investors";
+import { BACKEND_URL, fixImageUrl } from '../../services/apiService';
+
+const API_PATH = `${BACKEND_URL}/api/partners-investors`;
 
 interface Partner {
     id: number;
@@ -137,8 +140,8 @@ const PartnersInvestorsAdmin: React.FC = () => {
         setLoading(true);
         try {
             const [partnersRes, investorsRes] = await Promise.all([
-                axios.get(`${BACKEND_URL}/partners`),
-                axios.get(`${BACKEND_URL}/investors`)
+                axios.get(`${API_PATH}/partners`),
+                axios.get(`${API_PATH}/investors`)
             ]);
             setPartners(partnersRes.data);
             setInvestors(investorsRes.data);
@@ -159,7 +162,13 @@ const PartnersInvestorsAdmin: React.FC = () => {
             Object.keys(partnerForm).forEach(key => {
                 const value = (partnerForm as any)[key];
                 if (key === 'services_provided' || key === 'gallery') {
-                    formData.append(key, JSON.stringify(value || []));
+                    // Sanitize array items if strings
+                    const sanitizedValue = Array.isArray(value)
+                        ? value.map((item: any) => typeof item === 'string' ? DOMPurify.sanitize(item) : item)
+                        : value;
+                    formData.append(key, JSON.stringify(sanitizedValue || []));
+                } else if (typeof value === 'string') {
+                    formData.append(key, DOMPurify.sanitize(value));
                 } else if (value !== undefined && value !== null) {
                     formData.append(key, value);
                 }
@@ -176,12 +185,12 @@ const PartnersInvestorsAdmin: React.FC = () => {
             }
 
             if (editingPartner) {
-                await axios.put(`${BACKEND_URL}/partners/${editingPartner.id}`, formData, {
+                await axios.put(`${API_PATH}/partners/${editingPartner.id}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Partner updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/partners`, formData, {
+                await axios.post(`${API_PATH}/partners`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Partner created successfully');
@@ -209,7 +218,13 @@ const PartnersInvestorsAdmin: React.FC = () => {
             Object.keys(investorForm).forEach(key => {
                 const value = (investorForm as any)[key];
                 if (key === 'gallery') {
-                    formData.append(key, JSON.stringify(value || []));
+                    // Sanitize array items
+                    const sanitizedValue = Array.isArray(value)
+                        ? value.map((item: any) => typeof item === 'string' ? DOMPurify.sanitize(item) : item)
+                        : value;
+                    formData.append(key, JSON.stringify(sanitizedValue || []));
+                } else if (typeof value === 'string') {
+                    formData.append(key, DOMPurify.sanitize(value));
                 } else if (value !== undefined && value !== null) {
                     formData.append(key, value);
                 }
@@ -226,12 +241,12 @@ const PartnersInvestorsAdmin: React.FC = () => {
             }
 
             if (editingInvestor) {
-                await axios.put(`${BACKEND_URL}/investors/${editingInvestor.id}`, formData, {
+                await axios.put(`${API_PATH}/investors/${editingInvestor.id}`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Investor updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/investors`, formData, {
+                await axios.post(`${API_PATH}/investors`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
                 setSuccess('Investor created successfully');
@@ -253,7 +268,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
     const deletePartner = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this partner?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/partners/${id}`);
+            await axios.delete(`${API_PATH}/partners/${id}`);
             setSuccess('Partner deleted successfully');
             fetchData();
         } catch (err) {
@@ -264,7 +279,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
     const deleteInvestor = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this investor?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/investors/${id}`);
+            await axios.delete(`${API_PATH}/investors/${id}`);
             setSuccess('Investor deleted successfully');
             fetchData();
         } catch (err) {
@@ -457,7 +472,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="flex items-center space-x-4">
                                         <div className="w-16 h-16 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 border flex items-center justify-center">
                                             {logoPreview || partnerForm.logo ? (
-                                                <img src={logoPreview || (partnerForm.logo?.startsWith('http') ? partnerForm.logo : `http://localhost:5005${partnerForm.logo}`)} alt="Logo Preview" className="w-full h-full object-contain" />
+                                                <img src={logoPreview || (fixImageUrl(partnerForm.logo) || '')} alt="Logo Preview" className="w-full h-full object-contain" />
                                             ) : (
                                                 <FaHandshake className="text-gray-400" />
                                             )}
@@ -491,7 +506,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         {partnerForm.gallery?.map((img, idx) => (
                                             <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border">
-                                                <img src={img.startsWith('http') ? img : `http://localhost:5005${img}`} className="w-full h-full object-cover" />
+                                                <img src={fixImageUrl(img) || ''} className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setPartnerForm({ ...partnerForm, gallery: partnerForm.gallery?.filter((_, i) => i !== idx) })}
@@ -668,7 +683,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="flex items-center space-x-4">
                                         <div className="w-24 h-16 rounded overflow-hidden bg-gray-100 dark:bg-gray-800 border flex items-center justify-center">
                                             {imagePreview || investorForm.image ? (
-                                                <img src={imagePreview || (investorForm.image?.startsWith('http') ? investorForm.image : `http://localhost:5005${investorForm.image}`)} alt="Investor Preview" className="w-full h-full object-cover" />
+                                                <img src={imagePreview || (fixImageUrl(investorForm.image) || '')} alt="Investor Preview" className="w-full h-full object-cover" />
                                             ) : (
                                                 <FaBuilding className="text-gray-400" />
                                             )}
@@ -692,7 +707,7 @@ const PartnersInvestorsAdmin: React.FC = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         {investorForm.gallery?.map((img, idx) => (
                                             <div key={idx} className="relative group aspect-video rounded-lg overflow-hidden border">
-                                                <img src={img.startsWith('http') ? img : `http://localhost:5005${img}`} className="w-full h-full object-cover" />
+                                                <img src={fixImageUrl(img) || ''} className="w-full h-full object-cover" />
                                                 <button
                                                     type="button"
                                                     onClick={() => setInvestorForm({ ...investorForm, gallery: investorForm.gallery?.filter((_, i) => i !== idx) })}

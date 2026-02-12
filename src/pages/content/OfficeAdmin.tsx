@@ -1,8 +1,11 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import axios from 'axios';
 import { FaBuilding, FaPlus, FaEdit, FaTrash, FaCheck, FaTimes, FaSearch } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
 
-const BACKEND_URL = "http://localhost:5005/api/offices";
+import { BACKEND_URL } from '../../services/apiService';
+
+const API_PATH = `${BACKEND_URL}/api/offices`;
 
 interface Building {
     id: number;
@@ -77,8 +80,8 @@ const OfficeAdmin: React.FC = () => {
         setLoading(true);
         try {
             const [officesRes, buildingsRes] = await Promise.all([
-                axios.get(BACKEND_URL),
-                axios.get(`${BACKEND_URL}/buildings`)
+                axios.get(API_PATH),
+                axios.get(`${API_PATH}/buildings`)
             ]);
             setOffices(officesRes.data);
             setBuildings(buildingsRes.data);
@@ -90,16 +93,29 @@ const OfficeAdmin: React.FC = () => {
         }
     };
 
+
     const handleOfficeSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setError(null);
         try {
+            // Sanitize inputs
+            const cleanOfficeForm = {
+                ...officeForm,
+                id: DOMPurify.sanitize(officeForm.id || ''),
+                zone: DOMPurify.sanitize(officeForm.zone || ''),
+                unit_number: DOMPurify.sanitize(officeForm.unit_number || ''),
+                rented_by: DOMPurify.sanitize(officeForm.rented_by || ''),
+                contact_name: DOMPurify.sanitize(officeForm.contact_name || ''),
+                contact_phone: DOMPurify.sanitize(officeForm.contact_phone || ''),
+                building_name: DOMPurify.sanitize(officeForm.building_name || '')
+            };
+
             if (editingOffice) {
-                await axios.put(`${BACKEND_URL}/${editingOffice.id}`, officeForm);
+                await axios.put(`${API_PATH}/${editingOffice.id}`, cleanOfficeForm);
                 setSuccess('Office updated successfully');
             } else {
-                await axios.post(BACKEND_URL, officeForm);
+                await axios.post(API_PATH, cleanOfficeForm);
                 setSuccess('Office created successfully');
             }
             setShowOfficeForm(false);
@@ -117,11 +133,19 @@ const OfficeAdmin: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
+            // Sanitize inputs
+            const cleanBuildingForm = {
+                ...buildingForm,
+                name: DOMPurify.sanitize(buildingForm.name || ''),
+                description: DOMPurify.sanitize(buildingForm.description || ''),
+                icon_name: DOMPurify.sanitize(buildingForm.icon_name || '')
+            };
+
             if (editingBuilding) {
-                await axios.put(`${BACKEND_URL}/buildings/${editingBuilding.id}`, buildingForm);
+                await axios.put(`${API_PATH}/buildings/${editingBuilding.id}`, cleanBuildingForm);
                 setSuccess('Building updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/buildings`, buildingForm);
+                await axios.post(`${API_PATH}/buildings`, cleanBuildingForm);
                 setSuccess('Building created successfully');
             }
             setShowBuildingForm(false);
@@ -137,7 +161,7 @@ const OfficeAdmin: React.FC = () => {
     const deleteOffice = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this office?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/${id}`);
+            await axios.delete(`${API_PATH}/${id}`);
             setSuccess('Office deleted successfully');
             fetchData();
         } catch (err) {
@@ -148,7 +172,7 @@ const OfficeAdmin: React.FC = () => {
     const deleteBuilding = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this building? All offices in this building will be deleted too.')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/buildings/${id}`);
+            await axios.delete(`${API_PATH}/buildings/${id}`);
             setSuccess('Building deleted successfully');
             fetchData();
         } catch (err) {

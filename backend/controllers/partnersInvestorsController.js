@@ -1,6 +1,10 @@
 const db = require('../models/db');
 const fs = require('fs');
 const path = require('path');
+const createDOMPurify = require('dompurify');
+const { JSDOM } = require('jsdom');
+const window = new JSDOM('').window;
+const DOMPurify = createDOMPurify(window);
 
 // Manual promise wrapper
 const query = (sql, args) => {
@@ -10,6 +14,23 @@ const query = (sql, args) => {
             resolve(rows);
         });
     });
+};
+
+// Production-Safe Error Handler
+const sendError = (res, error, status = 500) => {
+    console.error(`[PARTNERS SECURITY] Error:`, error);
+    res.status(status).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production'
+            ? 'A secure processing error occurred. Detailed logs are available to admins.'
+            : error.message
+    });
+};
+
+// Backend Sanitizer
+const cleanString = (val) => {
+    if (typeof val !== 'string') return val;
+    return DOMPurify.sanitize(val, { ALLOWED_TAGS: [] }).trim();
 };
 
 // --- Partners ---
@@ -25,14 +46,13 @@ exports.getPartners = async (req, res) => {
         }));
         res.status(200).json(formattedPartners);
     } catch (error) {
-        console.error('Error fetching partners:', error);
-        res.status(500).json({ message: 'Error fetching partners', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.createPartner = async (req, res) => {
     try {
-        const {
+        let {
             partner_id, company_name, contact_name, contact_email,
             partnership_type, country, zone, industry_type,
             agreement_start_date, agreement_end_date, status,
@@ -40,6 +60,12 @@ exports.createPartner = async (req, res) => {
             meta_title, meta_description, meta_keywords, slug,
             website, linkedin, twitter, facebook
         } = req.body;
+
+        // Sanitize Strings
+        partner_id = cleanString(partner_id);
+        company_name = cleanString(company_name);
+        contact_name = cleanString(contact_name);
+        description = cleanString(description);
 
         const logo = req.files?.logo ? `/uploads/partners-investors/${req.files.logo[0].filename}` : req.body.logo;
         const galleryFiles = req.files?.gallery ? req.files.gallery.map(f => `/uploads/partners-investors/${f.filename}`) : [];
@@ -50,7 +76,7 @@ exports.createPartner = async (req, res) => {
             try {
                 parsedServices = JSON.parse(services_provided);
             } catch (e) {
-                parsedServices = services_provided.split(',').map(s => s.trim());
+                parsedServices = services_provided.split(',').map(s => cleanString(s.trim()));
             }
         }
 
@@ -68,7 +94,7 @@ exports.createPartner = async (req, res) => {
                 partnership_type, country, zone, industry_type,
                 agreement_start_date, agreement_end_date, status || 'Active',
                 JSON.stringify(parsedServices || []), logo, description,
-                meta_title, meta_description, meta_keywords, slug,
+                cleanString(meta_title), cleanString(meta_description), cleanString(meta_keywords), cleanString(slug),
                 website, linkedin, twitter, facebook,
                 JSON.stringify(galleryFiles)
             ]
@@ -76,15 +102,16 @@ exports.createPartner = async (req, res) => {
 
         res.status(201).json({ message: 'Partner created successfully', id: result.insertId });
     } catch (error) {
-        console.error('Error creating partner:', error);
-        res.status(500).json({ message: 'Error creating partner', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.updatePartner = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-        const {
+        let {
             partner_id, company_name, contact_name, contact_email,
             partnership_type, country, zone, industry_type,
             agreement_start_date, agreement_end_date, status,
@@ -92,6 +119,11 @@ exports.updatePartner = async (req, res) => {
             meta_title, meta_description, meta_keywords, slug,
             website, linkedin, twitter, facebook
         } = req.body;
+
+        partner_id = cleanString(partner_id);
+        company_name = cleanString(company_name);
+        contact_name = cleanString(contact_name);
+        description = cleanString(description);
 
         const logo = req.files?.logo ? `/uploads/partners-investors/${req.files.logo[0].filename}` : req.body.logo;
         let gallery = [];
@@ -107,7 +139,7 @@ exports.updatePartner = async (req, res) => {
             try {
                 parsedServices = JSON.parse(services_provided);
             } catch (e) {
-                parsedServices = services_provided.split(',').map(s => s.trim());
+                parsedServices = services_provided.split(',').map(s => cleanString(s.trim()));
             }
         }
 
@@ -125,27 +157,27 @@ exports.updatePartner = async (req, res) => {
                 partnership_type, country, zone, industry_type,
                 agreement_start_date, agreement_end_date, status,
                 JSON.stringify(parsedServices || []), logo, description,
-                meta_title, meta_description, meta_keywords, slug,
+                cleanString(meta_title), cleanString(meta_description), cleanString(meta_keywords), cleanString(slug),
                 website, linkedin, twitter, facebook, JSON.stringify(finalGallery),
-                id
+                idNum
             ]
         );
 
         res.status(200).json({ message: 'Partner updated successfully' });
     } catch (error) {
-        console.error('Error updating partner:', error);
-        res.status(500).json({ message: 'Error updating partner', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.deletePartner = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-
         // Find partner to get logo and gallery paths
-        const [partner] = await query('SELECT logo, gallery FROM partners WHERE id = ?', [id]);
+        const [partner] = await query('SELECT logo, gallery FROM partners WHERE id = ?', [idNum]);
 
-        await query('DELETE FROM partners WHERE id = ?', [id]);
+        await query('DELETE FROM partners WHERE id = ?', [idNum]);
 
         if (partner) {
             // Delete logo
@@ -169,8 +201,7 @@ exports.deletePartner = async (req, res) => {
 
         res.status(200).json({ message: 'Partner deleted successfully' });
     } catch (error) {
-        console.error('Error deleting partner:', error);
-        res.status(500).json({ message: 'Error deleting partner', error: error.message });
+        sendError(res, error);
     }
 };
 
@@ -185,14 +216,13 @@ exports.getInvestors = async (req, res) => {
         }));
         res.status(200).json(formattedInvestors);
     } catch (error) {
-        console.error('Error fetching investors:', error);
-        res.status(500).json({ message: 'Error fetching investors', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.createInvestor = async (req, res) => {
     try {
-        const {
+        let {
             investor_id, company_name, property_name, industry_type,
             availability_status, zone, country, description,
             contact_name, contact_phone, investment_type,
@@ -200,6 +230,12 @@ exports.createInvestor = async (req, res) => {
             meta_title, meta_description, meta_keywords, slug,
             linkedin, twitter, facebook
         } = req.body;
+
+        investor_id = cleanString(investor_id);
+        company_name = cleanString(company_name);
+        property_name = cleanString(property_name);
+        description = cleanString(description);
+        contact_name = cleanString(contact_name);
 
         const image = req.files?.image ? `/uploads/partners-investors/${req.files.image[0].filename}` : req.body.image;
         const galleryFiles = req.files?.gallery ? req.files.gallery.map(f => `/uploads/partners-investors/${f.filename}`) : [];
@@ -218,22 +254,23 @@ exports.createInvestor = async (req, res) => {
                 availability_status, zone, country, description,
                 contact_name, contact_phone, investment_type,
                 established_date, website, image,
-                meta_title, meta_description, meta_keywords, slug,
+                cleanString(meta_title), cleanString(meta_description), cleanString(meta_keywords), cleanString(slug),
                 linkedin, twitter, facebook, JSON.stringify(galleryFiles)
             ]
         );
 
         res.status(201).json({ message: 'Investor created successfully', id: result.insertId });
     } catch (error) {
-        console.error('Error creating investor:', error);
-        res.status(500).json({ message: 'Error creating investor', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.updateInvestor = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-        const {
+        let {
             investor_id, company_name, property_name, industry_type,
             availability_status, zone, country, description,
             contact_name, contact_phone, investment_type,
@@ -241,6 +278,12 @@ exports.updateInvestor = async (req, res) => {
             meta_title, meta_description, meta_keywords, slug,
             linkedin, twitter, facebook
         } = req.body;
+
+        investor_id = cleanString(investor_id);
+        company_name = cleanString(company_name);
+        property_name = cleanString(property_name);
+        description = cleanString(description);
+        contact_name = cleanString(contact_name);
 
         const image = req.files?.image ? `/uploads/partners-investors/${req.files.image[0].filename}` : req.body.image;
         let gallery = [];
@@ -265,27 +308,27 @@ exports.updateInvestor = async (req, res) => {
                 availability_status, zone, country, description,
                 contact_name, contact_phone, investment_type,
                 established_date, website, image,
-                meta_title, meta_description, meta_keywords, slug,
+                cleanString(meta_title), cleanString(meta_description), cleanString(meta_keywords), cleanString(slug),
                 linkedin, twitter, facebook, JSON.stringify(finalGallery),
-                id
+                idNum
             ]
         );
 
         res.status(200).json({ message: 'Investor updated successfully' });
     } catch (error) {
-        console.error('Error updating investor:', error);
-        res.status(500).json({ message: 'Error updating investor', error: error.message });
+        sendError(res, error);
     }
 };
 
 exports.deleteInvestor = async (req, res) => {
+    const idNum = parseInt(req.params.id, 10);
+    if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
     try {
-        const { id } = req.params;
-
         // Find investor to get image and gallery paths
-        const [investor] = await query('SELECT image, gallery FROM investors WHERE id = ?', [id]);
+        const [investor] = await query('SELECT image, gallery FROM investors WHERE id = ?', [idNum]);
 
-        await query('DELETE FROM investors WHERE id = ?', [id]);
+        await query('DELETE FROM investors WHERE id = ?', [idNum]);
 
         if (investor) {
             // Delete image
@@ -309,7 +352,6 @@ exports.deleteInvestor = async (req, res) => {
 
         res.status(200).json({ message: 'Investor deleted successfully' });
     } catch (error) {
-        console.error('Error deleting investor:', error);
-        res.status(500).json({ message: 'Error deleting investor', error: error.message });
+        sendError(res, error);
     }
 };

@@ -1,0 +1,16 @@
+/* Base ID Card Structure */
+.id-card-front,
+.id-card-back {
+    width: 500px;
+    height: 310px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    color: #333;
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+/* NO THEME OVERRIDES - REMOVED ALL BACKGROUND COLORS */

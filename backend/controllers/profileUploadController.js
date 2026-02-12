@@ -51,7 +51,7 @@ const uploadProfilePicture = (req, res) => {
   uploadAvatar(req, res, async (err) => {
     if (err) {
       console.error("Multer error:", err);
-      return res.status(500).json({ error: "File upload failed.", details: err.message });
+      return res.status(400).json({ error: "File upload failed. Please ensure your image is under 2MB." });
     }
 
     // IDOR protection: Use the ID from the authenticated token
@@ -130,7 +130,7 @@ const postNews = (req, res) => {
   uploadMultipleNewsImages(req, res, async (err) => {
     if (err) {
       console.error("Multer error for news images:", err);
-      return res.status(500).json({ error: "News images upload failed.", details: err.message, code: err.code });
+      return res.status(400).json({ error: "News images upload failed. Check file size and type." });
     }
 
     const { title, date, category, description, featured, readTime, tags, youtubeUrl } = req.body;
@@ -232,7 +232,7 @@ const postEvent = (req, res) => {
   uploadMultipleEventImages(req, res, async (err) => {
     if (err) {
       console.error("Multer error for event images:", err);
-      return res.status(500).json({ error: "Event images upload failed.", details: err.message, code: err.code });
+      return res.status(400).json({ error: "Event images upload failed. Check file size and type." });
     }
 
     const { title, date, time, venue, description, featured, registrationLink, capacity, tags } = req.body;
@@ -397,7 +397,7 @@ const editNews = (req, res) => {
   uploadMultipleNewsImages(req, res, async (err) => {
     if (err) {
       console.error("Multer error for news images (edit):", err);
-      return res.status(500).json({ error: "News images upload failed (edit).", details: err.message, code: err.code });
+      return res.status(400).json({ error: "News images upload failed (edit). Check file size and type." });
     }
 
     const { title, date, category, description, featured, readTime, tags, youtubeUrl } = req.body;
@@ -660,12 +660,10 @@ const editEvent = (req, res) => {
     }
     const oldImageUrl = results[0].image;
 
-    // Now, handle the file upload (if any)
     uploadNewsEventImage(req, res, async (uploadErr) => {
       if (uploadErr) {
-        // Multer errors can include file size issues, type issues, etc.
         console.error("Multer error for event image update:", uploadErr);
-        return res.status(500).json({ error: "Event image update failed.", details: uploadErr.message });
+        return res.status(400).json({ error: "Event image update failed. Ensure the file is a valid image under 5MB." });
       }
 
       const { title, date, time, venue, description, featured, registrationLink, capacity, tags } = req.body;

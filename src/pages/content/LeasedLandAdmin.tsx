@@ -1,8 +1,10 @@
 import React, { useState, useEffect, FormEvent } from 'react';
-import axios from 'axios';
 import { FaGlobeAfrica, FaPlus, FaEdit, FaTrash, FaSearch, FaMapMarkedAlt } from 'react-icons/fa';
+import DOMPurify from 'dompurify';
+import { request, BACKEND_URL as API_BASE_URL } from '../../services/apiService';
 
-const BACKEND_URL = "http://localhost:5005/api/lands";
+// The apiService request function already adds /api prefix
+const LAND_ROOT = "/lands";
 
 interface LandZone {
     id: number;
@@ -44,7 +46,6 @@ const LeasedLandAdmin: React.FC = () => {
     const [editingZone, setEditingZone] = useState<LandZone | null>(null);
 
     const [landForm, setLandForm] = useState<Partial<LeasedLand>>({
-        id: '',
         zone_id: 0,
         land_type: '',
         location: '',
@@ -72,12 +73,12 @@ const LeasedLandAdmin: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [landsRes, zonesRes] = await Promise.all([
-                axios.get(BACKEND_URL),
-                axios.get(`${BACKEND_URL}/zones`)
+            const [lands, zones] = await Promise.all([
+                request<LeasedLand[]>(LAND_ROOT),
+                request<LandZone[]>(`${LAND_ROOT}/zones`)
             ]);
-            setLands(landsRes.data);
-            setZones(zonesRes.data);
+            setLands(lands);
+            setZones(zones);
         } catch (err) {
             setError('Failed to fetch data');
             console.error(err);
@@ -91,18 +92,29 @@ const LeasedLandAdmin: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
+            // Sanitize inputs
+            const cleanLandForm = {
+                ...landForm,
+                land_type: DOMPurify.sanitize(landForm.land_type || ''),
+                location: DOMPurify.sanitize(landForm.location || ''),
+                leased_by: DOMPurify.sanitize(landForm.leased_by || ''),
+                contact_name: DOMPurify.sanitize(landForm.contact_name || ''),
+                contact_phone: DOMPurify.sanitize(landForm.contact_phone || ''),
+                zone_name: DOMPurify.sanitize(landForm.zone_name || '')
+            };
+
             if (editingLand) {
-                await axios.put(`${BACKEND_URL}/${editingLand.id}`, landForm);
+                await request(`${LAND_ROOT}/${encodeURIComponent(editingLand.id)}`, { method: 'PUT', data: cleanLandForm });
                 setSuccess('Land parcel updated successfully');
             } else {
-                await axios.post(BACKEND_URL, landForm);
+                await request(LAND_ROOT, { method: 'POST', data: cleanLandForm });
                 setSuccess('Land parcel created successfully');
             }
             setShowLandForm(false);
             setEditingLand(null);
             fetchData();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to save land parcel');
+            setError(err.message || 'Failed to save land parcel');
         } finally {
             setLoading(false);
         }
@@ -113,18 +125,26 @@ const LeasedLandAdmin: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
+            // Sanitize inputs
+            const cleanZoneForm = {
+                ...zoneForm,
+                name: DOMPurify.sanitize(zoneForm.name || ''),
+                description: DOMPurify.sanitize(zoneForm.description || ''),
+                icon_name: DOMPurify.sanitize(zoneForm.icon_name || '')
+            };
+
             if (editingZone) {
-                await axios.put(`${BACKEND_URL}/zones/${editingZone.id}`, zoneForm);
+                await request(`${LAND_ROOT}/zones/${editingZone.id}`, { method: 'PUT', data: cleanZoneForm });
                 setSuccess('Zone updated successfully');
             } else {
-                await axios.post(`${BACKEND_URL}/zones`, zoneForm);
+                await request(`${LAND_ROOT}/zones`, { method: 'POST', data: cleanZoneForm });
                 setSuccess('Zone created successfully');
             }
             setShowZoneForm(false);
             setEditingZone(null);
             fetchData();
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Failed to save zone');
+            setError(err.message || 'Failed to save zone');
         } finally {
             setLoading(false);
         }
@@ -133,22 +153,22 @@ const LeasedLandAdmin: React.FC = () => {
     const deleteLand = async (id: string) => {
         if (!window.confirm('Are you sure you want to delete this land parcel?')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/${id}`);
+            await request(`${LAND_ROOT}/${encodeURIComponent(id)}`, { method: 'DELETE' });
             setSuccess('Land parcel deleted successfully');
             fetchData();
-        } catch (err) {
-            setError('Failed to delete land parcel');
+        } catch (err: any) {
+            setError(err.message || 'Failed to delete land parcel');
         }
     };
 
     const deleteZone = async (id: number) => {
         if (!window.confirm('Are you sure you want to delete this zone? All land parcels in this zone will be deleted too.')) return;
         try {
-            await axios.delete(`${BACKEND_URL}/zones/${id}`);
+            await request(`${LAND_ROOT}/zones/${id}`, { method: 'DELETE' });
             setSuccess('Zone deleted successfully');
             fetchData();
-        } catch (err) {
-            setError('Failed to delete zone');
+        } catch (err: any) {
+            setError(err.message || 'Failed to delete zone');
         }
     };
 
@@ -199,7 +219,22 @@ const LeasedLandAdmin: React.FC = () => {
                                 />
                             </div>
                             <button
-                                onClick={() => { setEditingLand(null); setLandForm({ status: 'Available' }); setShowLandForm(true); }}
+                                onClick={() => {
+                                    setEditingLand(null);
+                                    setLandForm({
+                                        zone_id: 0,
+                                        land_type: '',
+                                        location: '',
+                                        size_sqm: 0,
+                                        available_size_sqm: 0,
+                                        status: 'Available',
+                                        leased_by: '',
+                                        leased_from: '',
+                                        contact_name: '',
+                                        contact_phone: ''
+                                    });
+                                    setShowLandForm(true);
+                                }}
                                 className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-green-700"
                             >
                                 <FaPlus /> <span>Add Parcel</span>
@@ -234,7 +269,11 @@ const LeasedLandAdmin: React.FC = () => {
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex space-x-2">
-                                                    <button onClick={() => { setEditingLand(l); setLandForm(l); setShowLandForm(true); }} className="text-blue-600 hover:text-blue-800"><FaEdit /></button>
+                                                    <button onClick={() => {
+                                                        setEditingLand(l);
+                                                        setLandForm(l);
+                                                        setShowLandForm(true);
+                                                    }} className="text-blue-600 hover:text-blue-800"><FaEdit /></button>
                                                     <button onClick={() => deleteLand(l.id)} className="text-red-600 hover:text-red-800"><FaTrash /></button>
                                                 </div>
                                             </td>
@@ -290,9 +329,18 @@ const LeasedLandAdmin: React.FC = () => {
                         <h2 className="text-xl font-bold mb-4 dark:text-white">{editingLand ? 'Edit Land Parcel' : 'Add New Land Parcel'}</h2>
                         <form onSubmit={handleLandSubmit} className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {editingLand && (
+                                    <div>
+                                        <label className={labelClass}>Parcel ID (System Generated)</label>
+                                        <input type="text" value={landForm.id} className={inputClass} disabled />
+                                    </div>
+                                )}
                                 <div>
-                                    <label className={labelClass}>Parcel ID</label>
-                                    <input type="text" value={landForm.id} onChange={(e) => setLandForm({ ...landForm, id: e.target.value })} className={inputClass} required disabled={!!editingLand} />
+                                    <label className={labelClass}>Status</label>
+                                    <select value={landForm.status} onChange={(e) => setLandForm({ ...landForm, status: e.target.value as any })} className={inputClass} required>
+                                        <option value="Available">Available</option>
+                                        <option value="Leased">Leased</option>
+                                    </select>
                                 </div>
                                 <div>
                                     <label className={labelClass}>Zone</label>
@@ -303,41 +351,34 @@ const LeasedLandAdmin: React.FC = () => {
                                 </div>
                                 <div>
                                     <label className={labelClass}>Land Type</label>
-                                    <input type="text" value={landForm.land_type} onChange={(e) => setLandForm({ ...landForm, land_type: e.target.value })} className={inputClass} placeholder="e.g. Commercial" required />
+                                    <input type="text" value={landForm.land_type || ''} onChange={(e) => setLandForm({ ...landForm, land_type: e.target.value })} className={inputClass} placeholder="e.g. Commercial" required />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Location</label>
-                                    <input type="text" value={landForm.location} onChange={(e) => setLandForm({ ...landForm, location: e.target.value })} className={inputClass} required />
+                                    <input type="text" value={landForm.location || ''} onChange={(e) => setLandForm({ ...landForm, location: e.target.value })} className={inputClass} required />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Size (m²)</label>
-                                    <input type="number" value={landForm.size_sqm} onChange={(e) => setLandForm({ ...landForm, size_sqm: parseFloat(e.target.value) })} className={inputClass} required />
+                                    <input type="number" value={landForm.size_sqm || 0} onChange={(e) => setLandForm({ ...landForm, size_sqm: parseFloat(e.target.value) })} className={inputClass} required />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Available Size (m²)</label>
-                                    <input type="number" value={landForm.available_size_sqm} onChange={(e) => setLandForm({ ...landForm, available_size_sqm: parseFloat(e.target.value) })} className={inputClass} />
+                                    <input type="number" value={landForm.available_size_sqm || 0} onChange={(e) => setLandForm({ ...landForm, available_size_sqm: parseFloat(e.target.value) })} className={inputClass} />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Available From</label>
                                     <input type="date" value={landForm.leased_from ? landForm.leased_from.split('T')[0] : ''} onChange={(e) => setLandForm({ ...landForm, leased_from: e.target.value })} className={inputClass} />
-                                </div>
-                                <div>
-                                    <label className={labelClass}>Status</label>
-                                    <select value={landForm.status} onChange={(e) => setLandForm({ ...landForm, status: e.target.value as any })} className={inputClass}>
-                                        <option value="Available">Available</option>
-                                        <option value="Leased">Leased</option>
-                                    </select>
                                 </div>
                             </div>
                             <hr className="dark:border-gray-800" />
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className={labelClass}>Contact Name</label>
-                                    <input type="text" value={landForm.contact_name} onChange={(e) => setLandForm({ ...landForm, contact_name: e.target.value })} className={inputClass} required />
+                                    <input type="text" value={landForm.contact_name || ''} onChange={(e) => setLandForm({ ...landForm, contact_name: e.target.value })} className={inputClass} required />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Contact Phone</label>
-                                    <input type="text" value={landForm.contact_phone} onChange={(e) => setLandForm({ ...landForm, contact_phone: e.target.value })} className={inputClass} required />
+                                    <input type="text" value={landForm.contact_phone || ''} onChange={(e) => setLandForm({ ...landForm, contact_phone: e.target.value })} className={inputClass} required />
                                 </div>
                             </div>
 

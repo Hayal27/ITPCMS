@@ -24,7 +24,7 @@ const LoginPage = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -37,7 +37,7 @@ const LoginPage = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.username || !formData.password) {
@@ -51,18 +51,17 @@ const LoginPage = () => {
     setMessageType("error");
 
     try {
-      const response = await axios.post("http://localhost:50055000/api/auth/login", {
-        username: formData.username,
-        password: formData.password
+      const response = await axios.post("https://api.ethiopianitpark.et/api/login", {
+        user_name: formData.username,
+        pass: formData.password
+      }, {
+        withCredentials: true
       });
 
       if (response.data.success) {
         const { token, user } = response.data;
 
-        // Store token
-        localStorage.setItem("token", token);
-        // Also store as vmms_auth_token for compatibility with HttpClient
-        localStorage.setItem("vmms_auth_token", token);
+        // Token is now handled via HttpOnly cookie
 
         // Map backend response to AuthContext expected structure
         const authUser = {
@@ -86,7 +85,7 @@ const LoginPage = () => {
         setMessage(response.data.message || "Login failed");
         setMessageType("error");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
 
       if (error.response?.status === 401) {
@@ -221,7 +220,7 @@ const LoginPage = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Products:</span>
-                <span className="text-white font-mono">2,847</span>
+                <span className="text-white font-mono"></span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400">Active:</span>

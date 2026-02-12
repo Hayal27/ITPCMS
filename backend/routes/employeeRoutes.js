@@ -11,6 +11,8 @@ router.post('/addEmployee', verifyToken, restrictTo(1), addEmployee);
 router.get('/departments', verifyToken, restrictTo(1), getAllDepartments);
 router.get('/roles', verifyToken, restrictTo(1), getAllRoles);
 router.get('/supervisors', verifyToken, restrictTo(1), getAllSupervisors);
+router.get('/all', verifyToken, restrictTo(1), require('../controllers/employeeController').getAllEmployees);
+router.post('/batch', verifyToken, restrictTo(1), require('../controllers/employeeController').batchAddEmployees);
 module.exports = router;
 
 

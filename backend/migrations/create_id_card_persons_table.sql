@@ -1,0 +1,35 @@
+-- Create a dedicated table for ID card person records
+-- This is independent from the employees table and used solely for ID generation
+
+CREATE TABLE IF NOT EXISTS id_card_persons (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_number VARCHAR(50) UNIQUE,
+    fname VARCHAR(100) NOT NULL,
+    lname VARCHAR(100) NOT NULL,
+    full_name VARCHAR(200),
+    position VARCHAR(100),
+    department VARCHAR(100),
+    nationality VARCHAR(50) DEFAULT 'Ethiopian',
+    email VARCHAR(150),
+    phone VARCHAR(20),
+    sex ENUM('M', 'F'),
+    date_of_birth DATE,
+    date_of_issue DATE,
+    expiry_date DATE,
+    photo_url VARCHAR(255),
+    signature_url VARCHAR(255),
+    qr_data TEXT,
+    custom_field_1_label VARCHAR(100),
+    custom_field_1_value VARCHAR(255),
+    custom_field_2_label VARCHAR(100),
+    custom_field_2_value VARCHAR(255),
+    custom_field_3_label VARCHAR(100),
+    custom_field_3_value VARCHAR(255),
+    status ENUM('active', 'inactive', 'expired') DEFAULT 'active',
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_id_number (id_number),
+    INDEX idx_full_name (full_name),
+    INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

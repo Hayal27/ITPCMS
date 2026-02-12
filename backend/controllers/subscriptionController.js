@@ -13,23 +13,7 @@ const query = (sql, args) => {
     });
 };
 
-console.log("LOADED UPDATED SUBSCRIPTION CONTROLLER");
-
-// Create email transporter
-const createTransporter = () => {
-    return nodemailer.createTransport({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT || 587,
-        secure: false,
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-        },
-        tls: {
-            rejectUnauthorized: false
-        }
-    });
-};
+const { sendEmail } = require('../services/emailService');
 
 // Subscribe to newsletter
 exports.subscribe = async (req, res) => {
@@ -54,57 +38,39 @@ exports.subscribe = async (req, res) => {
             if (existing[0].status === 'active') {
                 return res.status(400).json({
                     success: false,
-                    message: 'This email is already subscribed to our newsletter'
+                    message: 'This email is already subscribed'
                 });
             } else {
-                // Reactivate subscription
-                await query(
-                    'UPDATE subscribers SET status = ?, unsubscribed_at = NULL WHERE email = ?',
-                    ['active', email]
-                );
-
-                // Send welcome back email
-                await sendWelcomeEmail(email, true);
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Welcome back! Your subscription has been reactivated.'
-                });
+                // Reactivate
+                await query('UPDATE subscribers SET status = ?, unsubscribed_at = NULL WHERE email = ?', ['active', email]);
+                sendWelcomeEmail(email, true).catch(e => console.error('BG Email Error:', e));
+                return res.status(200).json({ success: true, message: 'Subscription reactivated!' });
             }
         }
 
         // Insert new subscriber
-        await query(
-            'INSERT INTO subscribers (email) VALUES (?)',
-            [email]
-        );
+        await query('INSERT INTO subscribers (email) VALUES (?)', [email]);
 
-        // Send welcome email
-        await sendWelcomeEmail(email, false);
+        // Send welcome email in background
+        sendWelcomeEmail(email, false).catch(e => console.error('BG Email Error:', e));
 
-        res.status(201).json({
+        return res.status(201).json({
             success: true,
-            message: 'Thank you for subscribing! Check your email for confirmation.'
+            message: 'Thank you for subscribing!'
         });
+
     } catch (error) {
         console.error('Subscription error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to subscribe. Please try again later.'
-        });
+        res.status(500).json({ success: false, message: 'Failed to subscribe', error: error.message });
     }
 };
 
 // Send welcome email
 const sendWelcomeEmail = async (email, isReturning = false) => {
-    try {
-        const transporter = createTransporter();
-
-        const mailOptions = {
-            from: `"Ethiopian IT Park" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: isReturning ? 'Welcome Back to Ethiopian IT Park Newsletter!' : 'Welcome to Ethiopian IT Park Newsletter!',
-            html: `
+    await sendEmail({
+        to: email,
+        subject: isReturning ? 'Welcome Back to Ethiopian IT Park Newsletter!' : 'Welcome to Ethiopian IT Park Newsletter!',
+        html: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -125,9 +91,9 @@ const sendWelcomeEmail = async (email, isReturning = false) => {
             <div class="content">
               <p>Dear Subscriber,</p>
               <p>${isReturning ?
-                    'We\'re thrilled to have you back! You\'ve successfully reactivated your subscription to the Ethiopian IT Park newsletter.' :
-                    'Thank you for subscribing to the Ethiopian IT Park newsletter! We\'re excited to have you join our community.'
-                }</p>
+                'We\'re thrilled to have you back! You\'ve successfully reactivated your subscription to the Ethiopian IT Park newsletter.' :
+                'Thank you for subscribing to the Ethiopian IT Park newsletter! We\'re excited to have you join our community.'
+            }</p>
               <p>You'll now receive:</p>
               <ul>
                 <li>Latest news and updates from Ethiopian IT Park</li>
@@ -136,7 +102,7 @@ const sendWelcomeEmail = async (email, isReturning = false) => {
                 <li>Exclusive announcements and resources</li>
               </ul>
               <p>Stay connected with Ethiopia's leading digital hub!</p>
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:50053002'}" class="button">Visit Our Website</a>
+              <a href="https://ethiopianitpark.et" class="button">Visit Our Website</a>
             </div>
             <div class="footer">
               <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
@@ -146,12 +112,7 @@ const sendWelcomeEmail = async (email, isReturning = false) => {
         </body>
         </html>
       `
-        };
-        await transporter.sendMail(mailOptions);
-        console.log('Welcome email sent to:', email);
-    } catch (error) {
-        console.error('Error sending welcome email:', error);
-    }
+    });
 };
 
 // Send notification to all subscribers
@@ -167,18 +128,26 @@ exports.notifySubscribers = async (type, item) => {
             return;
         }
 
-        const transporter = createTransporter();
         const isNews = type === 'news';
+        const isEvent = type === 'event';
+        const isJob = type === 'job';
+
         const title = item.title;
-        const date = item.date;
+        const date = item.date || item.start_date || new Date();
         const description = item.description?.replace(/<[^>]*>/g, '').substring(0, 200) + '...';
-        const link = `${process.env.FRONTEND_URL || 'http://localhost:50053002'}/${isNews ? 'news' : 'events'}/${item.id}`;
+
+        let linkPath = 'resources/digital/news/news';
+        if (isEvent) linkPath = 'resources/digital/news/event';
+        if (isJob) linkPath = 'career/jobs';
+
+        const link = `${'https://ethiopianitpark.et'}/${linkPath}/${item.id}`;
+
+        const typeLabel = type.toUpperCase();
 
         for (const subscriber of subscribers) {
-            const mailOptions = {
-                from: `"Ethiopian IT Park" <${process.env.EMAIL_USER}>`,
+            sendEmail({
                 to: subscriber.email,
-                subject: `New ${isNews ? 'News' : 'Event'}: ${title}`,
+                subject: `New ${typeLabel}: ${title}`,
                 html: `
           <!DOCTYPE html>
           <html>
@@ -188,8 +157,8 @@ exports.notifySubscribers = async (type, item) => {
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
               .header { background: linear-gradient(135deg, #16284F 0%, #0C7C92 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
               .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-              .badge { display: inline-block; padding: 5px 15px; background: #0C7C92; color: white; border-radius: 20px; font-size: 12px; margin-bottom: 15px; }
-              .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #16284F 0%, #0C7C92 100%); color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+              .badge { display: inline-block; padding: 5px 15px; background: #0C7C92; color: white; border-radius: 20px; font-size: 12px; margin-bottom: 15px; text-transform: uppercase; }
+              .button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #16284F 0%, #0C7C92 100%); color: white !important; text-decoration: none; border-radius: 5px; margin: 20px 0; }
               .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
               .unsubscribe { color: #999; text-decoration: none; }
             </style>
@@ -197,35 +166,28 @@ exports.notifySubscribers = async (type, item) => {
           <body>
             <div class="container">
               <div class="header">
-                <h1>New ${isNews ? 'News' : 'Event'} from Ethiopian IT Park</h1>
+                <h1>New ${typeLabel} from Ethiopian IT Park</h1>
               </div>
               <div class="content">
-                <span class="badge">${isNews ? 'NEWS' : 'EVENT'}</span>
+                <span class="badge">${typeLabel}</span>
                 <h2>${title}</h2>
-                <p><strong>Date:</strong> ${new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p><strong>Published on:</strong> ${new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                 <p>${description}</p>
-                <a href="${link}" class="button">Read More</a>
+                <a href="${link}" class="button">View ${typeLabel}</a>
               </div>
               <div class="footer">
                 <p>Ethiopian IT Park | Goro Road to Tulu Dimtu, Addis Ababa, Ethiopia</p>
                 <p>© ${new Date().getFullYear()} Ethiopian IT Park. All rights reserved.</p>
-                <p><a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/unsubscribe?email=${subscriber.email}" class="unsubscribe">Unsubscribe</a></p>
+                <p><a href="https://ethiopianitpark.et/unsubscribe?email=${subscriber.email}" class="unsubscribe">Unsubscribe</a></p>
               </div>
             </div>
           </body>
           </html>
         `
-            };
-
-            try {
-                await transporter.sendMail(mailOptions);
-                console.log(`Notification sent to: ${subscriber.email}`);
-            } catch (error) {
-                console.error(`Failed to send to ${subscriber.email}:`, error);
-            }
+            }).catch(e => console.error(`BG Notification Error for ${subscriber.email}:`, e));
         }
 
-        console.log(`Notifications sent to ${subscribers.length} subscribers`);
+        console.log(`Scheduled ${typeLabel} notifications for ${subscribers.length} subscribers`);
     } catch (error) {
         console.error('Error notifying subscribers:', error);
     }
@@ -281,3 +243,29 @@ exports.unsubscribe = async (req, res) => {
         });
     }
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// End of file

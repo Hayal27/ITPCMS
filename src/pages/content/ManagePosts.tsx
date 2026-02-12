@@ -9,46 +9,7 @@ import { newsCategories, stripHtml } from './NewsEventsAdmin';
 import SearchBarAndFilters from '../../components/ManagePosts/SearchBarAndFilters';
 import './NewsEventsAdmin.css';
 
-// --- START: Inlined API Service Content ---
-
-export const BACKEND_URL = "http://localhost:5005"; // Base URL for your backend
-
-// Generic request function using axios
-export async function request<T>(url: string, options: AxiosRequestConfig = {}): Promise<T> {
-  try {
-    const response = await axios({
-      url: `${BACKEND_URL}/api${url}`,
-      ...options,
-      headers: {
-        ...options.headers,
-      },
-    });
-    return response.data as T;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    if (axiosError.response) {
-      const errorData = axiosError.response.data as { success?: boolean; message?: string; error?: string };
-      console.error('API Error Response:', errorData);
-      if (errorData.success === false && errorData.message) {
-        throw new Error(errorData.message);
-      }
-      throw new Error(errorData?.message || errorData?.error || `Request failed with status ${axiosError.response.status}`);
-    } else if (axiosError.request) {
-      console.error('API No Response:', axiosError.request);
-      throw new Error('No response received from server. Please check your network connection and backend server.');
-    } else {
-      console.error('API Request Setup Error:', axiosError.message);
-      throw new Error(axiosError.message || 'An unknown error occurred during the request setup.');
-    }
-  }
-}
-
-export const fixImageUrl = (url: string | null | undefined): string | null => {
-  if (!url) return null;
-  if (url.startsWith('http')) return url;
-  if (url.startsWith('/uploads')) return `${BACKEND_URL}${url}`;
-  return url;
-};
+import { BACKEND_URL, request, fixImageUrl } from '../../services/apiService';
 
 // --- Data Interfaces ---
 export interface Comment {
@@ -262,7 +223,7 @@ export const deleteEventItem = async (id: string | number): Promise<void> => {
 
 // --- COMMENTS API ---
 export const getCommentsForPost = async (postId: string | number): Promise<Comment[]> => {
-  const response = await request<{ success: boolean, comments: Comment[], message?: string }>(`/news/${postId}/comments`, { method: 'GET' });
+  const response = await request<{ success: boolean, comments: Comment[], message?: string }>(`/admin/news/${postId}/comments`, { method: 'GET' });
   if (response.success && Array.isArray(response.comments)) {
     const mapComments = (comments: Comment[]): Comment[] => {
       return comments.map(c => ({
@@ -292,7 +253,7 @@ export const addAdminReply = async (replyData: NewCommentData): Promise<Comment>
 
 export const toggleCommentApproval = async (commentId: string | number, currentStatus: boolean): Promise<Comment> => {
   const response = await request<Comment>(`/comments/${commentId}/approve`, {
-    method: 'PUT',
+    method: 'PATCH',
     data: { approved: !currentStatus },
   });
   return { ...response, replies: response.replies || [] };

@@ -1,7 +1,18 @@
 const pool = require("../models/db.js");
 const db = pool.promise();
 const crypto = require("crypto");
-const { sendApplicationStatusUpdate } = require("../services/mailerService");
+const { sendApplicationStatusUpdate, sendApplicationConfirmationEmail } = require("../services/mailerService");
+
+// Production-Safe Error Handler
+const sendError = (res, error, status = 500) => {
+    console.error(`[CAREER SECURITY] Error:`, error);
+    res.status(status).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production'
+            ? 'A secure processing error occurred. Detailed logs are available to admins.'
+            : error.message
+    });
+};
 
 const careerController = {
     // --- JOB MANAGEMENT ---
@@ -12,7 +23,7 @@ const careerController = {
             const [rows] = await db.query("SELECT * FROM jobs WHERE status = 'published' ORDER BY created_at DESC");
             res.json(rows);
         } catch (error) {
-            res.status(500).json({ message: "Error fetching jobs", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -22,7 +33,7 @@ const careerController = {
             const [rows] = await db.query("SELECT * FROM jobs ORDER BY created_at DESC");
             res.json(rows);
         } catch (error) {
-            res.status(500).json({ message: "Error fetching jobs", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -33,33 +44,49 @@ const careerController = {
                 "INSERT INTO jobs (title, department, location, type, description, responsibilities, qualifications, status, start_date, deadline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [title, department, location, type, description, JSON.stringify(responsibilities), JSON.stringify(qualifications), status || 'draft', start_date, deadline]
             );
+
+            // Notify Subscribers if published
+            if (status === 'published') {
+                const subscriptionController = require('./subscriptionController');
+                subscriptionController.notifySubscribers('job', {
+                    id: result.insertId,
+                    title,
+                    start_date,
+                    description
+                }).catch(err => console.error('Notification Error:', err));
+            }
+
             res.status(201).json({ id: result.insertId, message: "Job created successfully" });
         } catch (error) {
-            res.status(500).json({ message: "Error creating job", error: error.message });
+            sendError(res, error);
         }
     },
 
     updateJob: async (req, res) => {
-        const { id } = req.params;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
         const { title, department, location, type, description, responsibilities, qualifications, status, start_date, deadline } = req.body;
         try {
             await db.query(
                 "UPDATE jobs SET title=?, department=?, location=?, type=?, description=?, responsibilities=?, qualifications=?, status=?, start_date=?, deadline=? WHERE id=?",
-                [title, department, location, type, description, JSON.stringify(responsibilities), JSON.stringify(qualifications), status, start_date, deadline, id]
+                [title, department, location, type, description, JSON.stringify(responsibilities), JSON.stringify(qualifications), status, start_date, deadline, idNum]
             );
             res.json({ message: "Job updated successfully" });
         } catch (error) {
-            res.status(500).json({ message: "Error updating job", error: error.message });
+            sendError(res, error);
         }
     },
 
     deleteJob: async (req, res) => {
-        const { id } = req.params;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
         try {
-            await db.query("DELETE FROM jobs WHERE id = ?", [id]);
+            await db.query("DELETE FROM jobs WHERE id = ?", [idNum]);
             res.json({ message: "Job deleted successfully" });
         } catch (error) {
-            res.status(500).json({ message: "Error deleting job", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -67,16 +94,29 @@ const careerController = {
 
     applyJob: async (req, res) => {
         const { jobId, fullName, email, gender, phone, address, linkedin, portfolio, coverLetter, education, workExperience, skills } = req.body;
-        const resumePath = req.file ? req.file.path : null;
+        const resumePath = req.file ? `/uploads/${req.file.filename}` : null;
+
+        const jobIdNum = parseInt(jobId, 10);
+        if (isNaN(jobIdNum)) return res.status(400).json({ message: "Invalid Job ID" });
 
         // Generate tracking code: ITPC-xxxx
         const trackingCode = `ITPC-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 
         try {
+            // Fetch Job Title first for the email
+            const [jobRows] = await db.query("SELECT title FROM jobs WHERE id = ?", [jobIdNum]);
+            const jobTitle = jobRows.length > 0 ? jobRows[0].title : "Selected Position";
+
             const [result] = await db.query(
-                "INSERT INTO applications (job_id, tracking_code, full_name, gender, email, phone, address, linkedin, portfolio, resume_path, cover_letter, education, work_experience, skills) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [jobId, trackingCode, fullName, gender, email, phone, address, linkedin, portfolio, resumePath, coverLetter, education, workExperience, skills]
+                "INSERT INTO applications (job_id, tracking_code, full_name, gender, email, phone, address, linkedin, portfolio, resume_path, cover_letter, education, work_experience, skills, applied_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+                [jobIdNum, trackingCode, fullName, gender, email, phone, address, linkedin, portfolio, resumePath, coverLetter, education, workExperience, skills]
             );
+
+            // Send Confirmation Email
+            if (email) {
+                sendApplicationConfirmationEmail(email, fullName, jobTitle, trackingCode)
+                    .catch(err => console.error("Error sending confirmation email:", err));
+            }
 
             res.status(201).json({
                 success: true,
@@ -84,7 +124,7 @@ const careerController = {
                 trackingCode
             });
         } catch (error) {
-            res.status(500).json({ message: "Error submitting application", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -103,7 +143,7 @@ const careerController = {
             }
             res.json(rows[0]);
         } catch (error) {
-            res.status(500).json({ message: "Error tracking application", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -117,12 +157,14 @@ const careerController = {
             `);
             res.json(rows);
         } catch (error) {
-            res.status(500).json({ message: "Error fetching applications", error: error.message });
+            sendError(res, error);
         }
     },
 
     updateStatus: async (req, res) => {
-        const { id } = req.params;
+        const idNum = parseInt(req.params.id, 10);
+        if (isNaN(idNum)) return res.status(400).json({ message: "Invalid ID" });
+
         const { status, adminNotes, appointmentDate, appointmentTime, appointmentLocation, appointmentDetails } = req.body;
 
         try {
@@ -132,13 +174,13 @@ const careerController = {
                 FROM applications a
                 LEFT JOIN jobs j ON a.job_id = j.id
                 WHERE a.id = ?
-            `, [id]);
+            `, [idNum]);
 
             if (appData.length === 0) return res.status(404).json({ message: "Application not found" });
 
             await db.query(
                 "UPDATE applications SET status = ?, admin_notes = ?, appointment_date = ?, appointment_time = ?, appointment_location = ?, appointment_lat = ?, appointment_lng = ?, appointment_map_link = ?, appointment_details = ? WHERE id = ?",
-                [status, adminNotes, appointmentDate, appointmentTime, appointmentLocation, req.body.appointmentLat, req.body.appointmentLng, req.body.appointmentMapLink, appointmentDetails, id]
+                [status, adminNotes, appointmentDate, appointmentTime, appointmentLocation, req.body.appointmentLat, req.body.appointmentLng, req.body.appointmentMapLink, appointmentDetails, idNum]
             );
 
             // Send Email Notification
@@ -155,8 +197,7 @@ const careerController = {
 
             res.json({ message: "Status updated and applicant notified" });
         } catch (error) {
-            console.error("Update Status Error:", error);
-            res.status(500).json({ message: "Error updating status", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -167,11 +208,17 @@ const careerController = {
             return res.status(400).json({ message: "No application IDs provided" });
         }
 
+        // Strictly validate IDs are numbers
+        const safeIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+        if (safeIds.length === 0) {
+            return res.status(400).json({ message: "No valid IDs provided" });
+        }
+
         try {
             // 1. Update database
             await db.query(
                 "UPDATE applications SET status = ?, admin_notes = ?, appointment_date = ?, appointment_time = ?, appointment_location = ?, appointment_lat = ?, appointment_lng = ?, appointment_map_link = ?, appointment_details = ? WHERE id IN (?)",
-                [status, adminNotes, appointmentDate, appointmentTime, appointmentLocation, appointmentLat, appointmentLng, appointmentMapLink, appointmentDetails, ids]
+                [status, adminNotes, appointmentDate, appointmentTime, appointmentLocation, appointmentLat, appointmentLng, appointmentMapLink, appointmentDetails, safeIds]
             );
 
             // 2. Fetch data for emails
@@ -180,7 +227,7 @@ const careerController = {
                 FROM applications a
                 LEFT JOIN jobs j ON a.job_id = j.id
                 WHERE a.id IN (?)
-            `, [ids]);
+            `, [safeIds]);
 
             // 3. Send emails
             await Promise.all(apps.map(app =>
@@ -195,10 +242,9 @@ const careerController = {
                 })
             ));
 
-            res.json({ message: `Successfully updated ${ids.length} applications and sent notifications.` });
+            res.json({ message: `Successfully updated ${safeIds.length} applications and sent notifications.` });
         } catch (error) {
-            console.error("Bulk Update Error:", error);
-            res.status(500).json({ message: "Error in bulk update", error: error.message });
+            sendError(res, error);
         }
     },
 
@@ -221,8 +267,7 @@ const careerController = {
 
             res.json(apps[0]);
         } catch (error) {
-            console.error("Check Status Error:", error);
-            res.status(500).json({ message: "Error checking status", error: error.message });
+            sendError(res, error);
         }
     }
 };

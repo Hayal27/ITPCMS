@@ -1,9 +1,8 @@
 // controllers/userController.js
 
-const util = require('util');
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const con = require("../models/db");
 
 // Add new user (Create Employee -> Create User)
@@ -14,27 +13,37 @@ const addUser = async (req, res) => {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
-  const query = util.promisify(con.query).bind(con);
+  // Strong password policy: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  if (!passwordRegex.test(password)) {
+    return res.status(400).json({
+      message: "Password does not meet security requirements. It must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)."
+    });
+  }
 
+  let connection;
   try {
-    await query('START TRANSACTION');
+    // Get a dedicated connection from the pool for the transaction
+    connection = await con.promise().getConnection();
+    await connection.beginTransaction();
 
-    // Check if user_name or email already exists to avoid partial inserts
-    const existingUsers = await query("SELECT user_id FROM users WHERE user_name = ?", [user_name]);
+    // Check if user_name already exists to avoid partial inserts
+    const [existingUsers] = await connection.query("SELECT user_id FROM users WHERE user_name = ?", [user_name]);
     if (existingUsers.length > 0) {
-      await query('ROLLBACK');
+      await connection.rollback();
       return res.status(400).json({ message: "Username already exists" });
     }
 
-    const existingEmp = await query("SELECT employee_id FROM employees WHERE email = ?", [email]);
+    // Check if employee email already exists
+    const [existingEmp] = await connection.query("SELECT employee_id FROM employees WHERE email = ?", [email]);
     if (existingEmp.length > 0) {
-      await query('ROLLBACK');
+      await connection.rollback();
       return res.status(400).json({ message: "Employee with this email already exists" });
     }
 
     // 1. Create Employee
     const empName = `${fname} ${lname}`;
-    const empResult = await query(
+    const [empResult] = await connection.query(
       "INSERT INTO employees (name, fname, lname, email, phone, department_id, role_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [empName, fname, lname, email, phone, department_id, role_id]
     );
@@ -44,20 +53,22 @@ const addUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // 3. Create User
-    await query(
+    const [userResult] = await connection.query(
       "INSERT INTO users (employee_id, user_name, password, role_id, status) VALUES (?, ?, ?, ?, '1')",
       [employee_id, user_name, hashedPassword, role_id]
     );
 
-    await query('COMMIT');
+    await connection.commit();
 
-    console.log(`User created: ${user_name} (Employee ID: ${employee_id})`);
-    res.status(201).json({ message: "User created successfully" });
+    console.log(`User created: ${user_name} (User ID: ${userResult.insertId}, Employee ID: ${employee_id})`);
+    res.status(201).json({ message: "User created successfully", user_id: userResult.insertId });
 
   } catch (error) {
-    await query('ROLLBACK');
+    if (connection) await connection.rollback();
     console.error("Error adding user:", error);
-    res.status(500).json({ message: "Error adding user", error: error.message });
+    res.status(500).json({ message: "Error adding user" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -65,19 +76,22 @@ const updateUser = async (req, res) => {
   const { user_id } = req.params;
   const { fname, lname, user_name, phone, department_id, role_id, password } = req.body;
 
+  let connection;
   try {
-    const query = util.promisify(con.query).bind(con);
+    connection = await con.promise().getConnection();
+    await connection.beginTransaction();
 
     // Retrieve the employee_id from the users table
-    const usersData = await query("SELECT employee_id FROM users WHERE user_id = ?", [user_id]);
+    const [usersData] = await connection.query("SELECT employee_id FROM users WHERE user_id = ?", [user_id]);
     if (!usersData || usersData.length === 0) {
+      await connection.rollback();
       console.error("User not found for update, user_id:", user_id);
       return res.status(404).json({ message: "User not found" });
     }
     const employee_id = usersData[0].employee_id;
 
     if (employee_id) {
-      await query(
+      await connection.query(
         "UPDATE employees SET fname = ?, lname = ?, phone = ?, department_id = ? WHERE employee_id = ?",
         [fname, lname, phone, department_id, employee_id]
       );
@@ -87,6 +101,14 @@ const updateUser = async (req, res) => {
     const queryParams = [user_name, role_id];
 
     if (password && password.trim() !== "") {
+      // Strong password policy: min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+      const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      if (!passwordRegex.test(password)) {
+        await connection.rollback();
+        return res.status(400).json({
+          message: "New password does not meet security requirements. It must be at least 8 characters long and include uppercase, lowercase, numbers, and special characters (@$!%*?&)."
+        });
+      }
       const hashedPassword = await bcrypt.hash(password, 10);
       updateUserSql += ", password = ?";
       queryParams.push(hashedPassword);
@@ -95,12 +117,16 @@ const updateUser = async (req, res) => {
     updateUserSql += " WHERE user_id = ?";
     queryParams.push(user_id);
 
-    await query(updateUserSql, queryParams);
+    await connection.query(updateUserSql, queryParams);
+    await connection.commit();
 
     res.status(200).json({ message: "User updated successfully" });
   } catch (error) {
+    if (connection) await connection.rollback();
     console.error("Error updating user:", error);
-    res.status(500).json({ message: "Error updating user", error: error.message });
+    res.status(500).json({ message: "Error updating user" });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -109,7 +135,7 @@ const getAllRoles = (req, res) => {
   con.query("SELECT * FROM roles", (err, results) => {
     if (err) {
       console.error("Error retrieving roles:", err);
-      return res.status(500).json({ message: "Error retrieving roles", error: err });
+      return res.status(500).json({ message: "Error retrieving roles" });
     }
     res.json(results);
   });
@@ -120,7 +146,7 @@ const getDepartment = (req, res) => {
   con.query("SELECT * FROM departments", (err, results) => {
     if (err) {
       console.error("Error retrieving department:", err);
-      return res.status(500).json({ message: "Error retrieving department", error: err });
+      return res.status(500).json({ message: "Error retrieving department" });
     }
     res.json(results);
   });
@@ -140,7 +166,7 @@ const getAllUsers = (req, res) => {
   con.query(query, (err, results) => {
     if (err) {
       console.error("Error retrieving users:", err);
-      return res.status(500).json({ message: "Error retrieving users", error: err });
+      return res.status(500).json({ message: "Error retrieving users" });
     }
     res.json(results);
   });
@@ -158,7 +184,7 @@ const changeUserStatus = (req, res) => {
   con.query("UPDATE users SET status = ? WHERE user_id = ?", [status, user_id], (err, result) => {
     if (err) {
       console.error("Error updating user status:", err);
-      return res.status(500).json({ message: "Error updating user status", error: err });
+      return res.status(500).json({ message: "Error updating user status" });
     }
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "User not found" });
@@ -175,7 +201,7 @@ const deleteUser = (req, res) => {
   con.query("SELECT avatar_url FROM users WHERE user_id = ?", [user_id], (fetchErr, results) => {
     if (fetchErr) {
       console.error("Error fetching user for deletion:", fetchErr);
-      return res.status(500).json({ message: "Error fetching user", error: fetchErr });
+      return res.status(500).json({ message: "Error fetching user" });
     }
 
     const avatarUrl = results.length > 0 ? results[0].avatar_url : null;
@@ -183,7 +209,7 @@ const deleteUser = (req, res) => {
     con.query("DELETE FROM users WHERE user_id = ?", [user_id], (err, result) => {
       if (err) {
         console.error("Error deleting user:", err);
-        return res.status(500).json({ message: "Error deleting user", error: err });
+        return res.status(500).json({ message: "Error deleting user" });
       }
 
       if (result.affectedRows === 0) {
